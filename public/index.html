@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#e8590c">
+<meta name="description" content="Order Up! Kitchen Chaos - A restaurant tycoon clicker game. Cook, serve, and build your food empire!">
+<meta property="og:title" content="Order Up! Kitchen Chaos">
+<meta property="og:description" content="Cook, serve, and build your restaurant empire in this addictive clicker game!">
+<meta property="og:image" content="/assets/ui/icon.png">
+<meta property="og:type" content="website">
+<title>Order Up! Kitchen Chaos</title>
+<link rel="icon" type="image/png" href="/assets/ui/icon.png">
+<link rel="apple-touch-icon" href="/assets/ui/icon.png">
+<link rel="manifest" href="/manifest.json">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--primary:#e8590c;--primary-dark:#c2410c;--gold:#f59e0b;--gold-dark:#d97706;--bg:#1a1110;--card:#2a1f1e;--card-hover:#3a2f2e;--text:#fef3c7;--text-dim:#a8896a;--green:#16a34a;--red:#dc2626;--blue:#2563eb}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none}
+
+/* Loading Screen */
+#loading{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;transition:opacity .5s}
+#loading.done{opacity:0;pointer-events:none}
+#loading h1{font-size:2rem;color:var(--primary);margin-bottom:.5rem}
+#loading p{color:var(--text-dim);margin-bottom:1.5rem}
+.load-bar{width:240px;height:8px;background:#333;border-radius:4px;overflow:hidden}
+.load-fill{height:100%;background:linear-gradient(90deg,var(--primary),var(--gold));width:0%;transition:width .3s;border-radius:4px}
+
+/* Main Layout */
+#app{height:100%;display:flex;flex-direction:column;opacity:0;transition:opacity .5s}
+#app.show{opacity:1}
+
+/* Top Bar */
+.top-bar{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#221716;border-bottom:2px solid var(--primary-dark);flex-shrink:0}
+.top-bar .logo{display:flex;align-items:center;gap:8px}
+.top-bar .logo img{width:32px;height:32px;border-radius:6px}
+.top-bar .logo span{font-weight:700;font-size:1rem;color:var(--primary)}
+.stats{display:flex;gap:16px;font-size:.85rem;align-items:center}
+.stat{display:flex;align-items:center;gap:4px}
+.stat .icon{font-size:1.1rem}
+.coin-count{color:var(--gold);font-weight:700;font-variant-numeric:tabular-nums}
+.cps{color:var(--text-dim);font-size:.75rem}
+
+/* Tab Navigation */
+.tabs{display:flex;background:#221716;border-bottom:1px solid #333;flex-shrink:0}
+.tab{flex:1;padding:10px 4px;text-align:center;font-size:.75rem;font-weight:600;color:var(--text-dim);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s}
+.tab.active{color:var(--primary);border-bottom-color:var(--primary);background:rgba(232,89,12,.08)}
+.tab:hover{background:rgba(232,89,12,.05)}
+
+/* Content Panels */
+.content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:12px}
+.panel{display:none}
+.panel.active{display:block}
+
+/* Kitchen Panel - Cook Button */
+.kitchen{display:flex;flex-direction:column;align-items:center;gap:16px;padding-top:20px}
+.cook-area{position:relative;width:180px;height:180px}
+.cook-btn{width:100%;height:100%;border-radius:50%;border:4px solid var(--primary);background:radial-gradient(circle at 40% 40%,#ff6b2b,var(--primary-dark),#7c2d12);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:1.1rem;font-weight:700;color:#fff;text-shadow:0 2px 4px rgba(0,0,0,.5);box-shadow:0 8px 32px rgba(232,89,12,.3),inset 0 -4px 12px rgba(0,0,0,.3);transition:transform .1s,box-shadow .1s;position:relative;overflow:hidden}
+.cook-btn:active{transform:scale(.94);box-shadow:0 4px 16px rgba(232,89,12,.2),inset 0 2px 8px rgba(0,0,0,.4)}
+.cook-btn .emoji{font-size:2.5rem;margin-bottom:4px}
+.cook-btn .label{font-size:.8rem;opacity:.8}
+
+/* Float text */
+.float-text{position:absolute;pointer-events:none;font-weight:700;font-size:1.2rem;color:var(--gold);text-shadow:0 1px 3px rgba(0,0,0,.7);animation:floatUp .8s ease-out forwards;z-index:10}
+@keyframes floatUp{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-80px) scale(1.2)}}
+
+/* Current dish display */
+.dish-display{text-align:center}
+.dish-display .name{font-size:1.3rem;font-weight:700;color:var(--gold)}
+.dish-display .value{color:var(--text-dim);font-size:.85rem}
+.dish-display .emoji-big{font-size:3rem}
+
+/* Combo meter */
+.combo-wrap{width:200px}
+.combo-label{font-size:.75rem;color:var(--text-dim);text-align:center;margin-bottom:4px}
+.combo-bar{height:6px;background:#333;border-radius:3px;overflow:hidden}
+.combo-fill{height:100%;background:linear-gradient(90deg,var(--primary),var(--gold),#ef4444);border-radius:3px;transition:width .15s}
+.combo-text{font-size:.75rem;text-align:center;margin-top:2px;color:var(--gold);font-weight:700}
+
+/* Multiplier badges */
+.multipliers{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.mult-badge{font-size:.7rem;padding:2px 8px;border-radius:12px;background:rgba(245,158,11,.15);color:var(--gold);border:1px solid rgba(245,158,11,.3)}
+
+/* Upgrade Cards */
+.upgrade-list{display:flex;flex-direction:column;gap:8px}
+.upgrade-card{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid #3a2a29;border-radius:10px;padding:10px 12px;cursor:pointer;transition:all .15s}
+.upgrade-card:hover{background:var(--card-hover);border-color:var(--primary-dark)}
+.upgrade-card.locked{opacity:.5;cursor:not-allowed}
+.upgrade-card.maxed{border-color:var(--gold);opacity:.7}
+.upgrade-icon{font-size:1.8rem;width:44px;text-align:center;flex-shrink:0}
+.upgrade-info{flex:1;min-width:0}
+.upgrade-name{font-size:.85rem;font-weight:600}
+.upgrade-desc{font-size:.7rem;color:var(--text-dim);margin-top:2px}
+.upgrade-meta{display:flex;justify-content:space-between;align-items:center;margin-top:4px}
+.upgrade-level{font-size:.7rem;color:var(--text-dim)}
+.upgrade-cost{font-size:.8rem;font-weight:700;color:var(--gold);white-space:nowrap}
+.upgrade-cost.cant-afford{color:var(--red)}
+
+/* Staff panel */
+.staff-card{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid #3a2a29;border-radius:10px;padding:10px 12px;cursor:pointer;transition:all .15s;margin-bottom:8px}
+.staff-card:hover{background:var(--card-hover);border-color:var(--primary-dark)}
+.staff-card.owned{border-color:var(--green);background:rgba(22,163,74,.05)}
+.staff-icon{font-size:2rem;width:44px;text-align:center;flex-shrink:0}
+.staff-info{flex:1}
+.staff-name{font-size:.85rem;font-weight:600}
+.staff-desc{font-size:.7rem;color:var(--text-dim);margin-top:1px}
+.staff-earn{font-size:.75rem;color:var(--green);margin-top:2px}
+.staff-cost{font-size:.8rem;font-weight:700;color:var(--gold)}
+.staff-cost.cant-afford{color:var(--red)}
+
+/* Achievements Panel */
+.ach-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px}
+.ach-card{display:flex;flex-direction:column;align-items:center;padding:10px 6px;background:var(--card);border:1px solid #3a2a29;border-radius:10px;text-align:center;position:relative;transition:all .2s}
+.ach-card.unlocked{border-color:var(--gold);background:rgba(245,158,11,.05)}
+.ach-card.locked .ach-img{filter:grayscale(1) brightness(.4)}
+.ach-img{width:48px;height:48px;object-fit:contain;margin-bottom:6px}
+.ach-name{font-size:.65rem;font-weight:600;line-height:1.2}
+.ach-lock{position:absolute;top:4px;right:4px;width:14px;height:14px;opacity:.6}
+
+/* Stats Panel */
+.stats-panel{display:flex;flex-direction:column;gap:8px}
+.stat-row{display:flex;justify-content:space-between;padding:8px 12px;background:var(--card);border-radius:8px;font-size:.85rem}
+.stat-row .label{color:var(--text-dim)}
+.stat-row .val{font-weight:600;color:var(--gold);font-variant-numeric:tabular-nums}
+
+/* Prestige Panel */
+.prestige-area{display:flex;flex-direction:column;align-items:center;gap:16px;padding-top:24px;text-align:center}
+.prestige-area h2{font-size:1.3rem;color:var(--gold)}
+.prestige-area p{color:var(--text-dim);font-size:.85rem;max-width:300px}
+.prestige-stars{font-size:1.5rem;color:var(--gold);margin:8px 0}
+.prestige-btn{padding:12px 32px;border-radius:10px;border:2px solid var(--gold);background:rgba(245,158,11,.1);color:var(--gold);font-size:1rem;font-weight:700;cursor:pointer;transition:all .2s}
+.prestige-btn:hover{background:rgba(245,158,11,.2)}
+.prestige-btn:disabled{opacity:.4;cursor:not-allowed}
+.prestige-info{font-size:.75rem;color:var(--text-dim)}
+
+/* Toast Notification */
+.toast{position:fixed;top:60px;left:50%;transform:translateX(-50%) translateY(-100px);background:#221716;border:1px solid var(--gold);border-radius:10px;padding:10px 20px;font-size:.85rem;color:var(--gold);z-index:100;transition:transform .3s ease-out;display:flex;align-items:center;gap:8px;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.toast img{width:28px;height:28px}
+
+/* Section headers */
+.section-hdr{font-size:.8rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;padding-left:4px}
+.section-hdr:not(:first-child){margin-top:16px}
+
+/* Save indicator */
+.save-indicator{position:fixed;bottom:8px;right:8px;font-size:.65rem;color:var(--text-dim);opacity:0;transition:opacity .3s}
+.save-indicator.show{opacity:1}
+
+/* Scrollbar */
+.content::-webkit-scrollbar{width:4px}
+.content::-webkit-scrollbar-track{background:transparent}
+.content::-webkit-scrollbar-thumb{background:#444;border-radius:2px}
+
+/* Responsive */
+@media(min-width:600px){
+  .content{max-width:500px;margin:0 auto}
+  .cook-area{width:200px;height:200px}
+}
+</style>
+</head>
+<body>
+
+<!-- Loading Screen -->
+<div id="loading">
+  <h1>Order Up!</h1>
+  <p>Kitchen Chaos</p>
+  <div class="load-bar"><div class="load-fill" id="loadFill"></div></div>
+</div>
+
+<!-- Main App -->
+<div id="app">
+  <div class="top-bar">
+    <div class="logo">
+      <img src="/assets/ui/icon.png" alt="Order Up" width="32" height="32">
+      <span>Order Up!</span>
+    </div>
+    <div class="stats">
+      <div class="stat">
+        <span class="icon">&#x1FA99;</span>
+        <span class="coin-count" id="coinDisplay">0</span>
+      </div>
+      <span class="cps" id="cpsDisplay">0/s</span>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="kitchen">Cook</div>
+    <div class="tab" data-tab="upgrades">Upgrades</div>
+    <div class="tab" data-tab="staff">Staff</div>
+    <div class="tab" data-tab="achievements">Trophies</div>
+    <div class="tab" data-tab="prestige">Prestige</div>
+  </div>
+
+  <div class="content">
+    <!-- Kitchen Panel -->
+    <div class="panel active" id="panel-kitchen">
+      <div class="kitchen">
+        <div class="dish-display">
+          <div class="emoji-big" id="dishEmoji">&#x1F373;</div>
+          <div class="name" id="dishName">Fried Egg</div>
+          <div class="value">+<span id="dishValue">1</span> coins per cook</div>
+        </div>
+
+        <div class="cook-area" id="cookArea">
+          <button class="cook-btn" id="cookBtn">
+            <span class="emoji">&#x1F373;</span>
+            <span>COOK!</span>
+            <span class="label">tap to serve</span>
+          </button>
+        </div>
+
+        <div class="combo-wrap">
+          <div class="combo-label">Combo Meter</div>
+          <div class="combo-bar"><div class="combo-fill" id="comboFill"></div></div>
+          <div class="combo-text" id="comboText">x1</div>
+        </div>
+
+        <div class="multipliers" id="multipliers"></div>
+      </div>
+    </div>
+
+    <!-- Upgrades Panel -->
+    <div class="panel" id="panel-upgrades">
+      <div class="section-hdr">Kitchen Upgrades</div>
+      <div class="upgrade-list" id="upgradeList"></div>
+    </div>
+
+    <!-- Staff Panel -->
+    <div class="panel" id="panel-staff">
+      <div class="section-hdr">Hire Staff (auto-cook)</div>
+      <div id="staffList"></div>
+    </div>
+
+    <!-- Achievements Panel -->
+    <div class="panel" id="panel-achievements">
+      <div class="section-hdr">Crystal Collection (<span id="achCount">0</span>/30)</div>
+      <div class="ach-grid" id="achGrid"></div>
+    </div>
+
+    <!-- Prestige Panel -->
+    <div class="panel" id="panel-prestige">
+      <div class="prestige-area">
+        <h2>&#x2B50; Prestige</h2>
+        <p>Reset your restaurant and start fresh with a permanent coin multiplier. The more coins you've earned, the bigger the bonus.</p>
+        <div class="prestige-stars" id="prestigeStars"></div>
+        <div class="prestige-info" id="prestigeInfo">Earn 10,000 coins total to unlock prestige</div>
+        <button class="prestige-btn" id="prestigeBtn" disabled>Prestige (x<span id="prestigeMult">1</span>)</button>
+
+        <div class="stats-panel" style="width:100%;margin-top:20px">
+          <div class="section-hdr">Lifetime Stats</div>
+          <div class="stat-row"><span class="label">Total Coins Earned</span><span class="val" id="statTotal">0</span></div>
+          <div class="stat-row"><span class="label">Total Clicks</span><span class="val" id="statClicks">0</span></div>
+          <div class="stat-row"><span class="label">Dishes Served</span><span class="val" id="statDishes">0</span></div>
+          <div class="stat-row"><span class="label">Prestige Level</span><span class="val" id="statPrestige">0</span></div>
+          <div class="stat-row"><span class="label">Achievements</span><span class="val" id="statAch">0/30</span></div>
+          <div class="stat-row"><span class="label">Time Played</span><span class="val" id="statTime">0m</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="save-indicator" id="saveInd">Saved</div>
+
+<script>
+// ============================================================
+// ORDER UP! KITCHEN CHAOS - Game Engine
+// ============================================================
+
+(function() {
+'use strict';
+
+// ----- GAME DATA -----
+
+const DISHES = [
+  { name: 'Fried Egg', emoji: '\u{1F373}', unlock: 0 },
+  { name: 'Hot Dog', emoji: '\u{1F32D}', unlock: 50 },
+  { name: 'Burger', emoji: '\u{1F354}', unlock: 200 },
+  { name: 'Fries', emoji: '\u{1F35F}', unlock: 500 },
+  { name: 'Pizza', emoji: '\u{1F355}', unlock: 1500 },
+  { name: 'Taco', emoji: '\u{1F32E}', unlock: 4000 },
+  { name: 'Sushi', emoji: '\u{1F363}', unlock: 10000 },
+  { name: 'Steak', emoji: '\u{1F969}', unlock: 25000 },
+  { name: 'Lobster', emoji: '\u{1F99E}', unlock: 75000 },
+  { name: 'Cake', emoji: '\u{1F370}', unlock: 200000 },
+  { name: 'Ramen', emoji: '\u{1F35C}', unlock: 500000 },
+  { name: 'Paella', emoji: '\u{1F958}', unlock: 1500000 },
+];
+
+const UPGRADES = [
+  { id: 'knife',    name: 'Better Knives',     emoji: '\u{1F52A}', desc: 'Chop faster, earn more per cook',  baseCost: 15,      perLevel: 1,   maxLvl: 50, growth: 1.15 },
+  { id: 'oven',     name: 'Pro Oven',           emoji: '\u{1F3ED}', desc: 'Industrial oven doubles output',   baseCost: 100,     perLevel: 3,   maxLvl: 30, growth: 1.2 },
+  { id: 'spice',    name: 'Spice Rack',         emoji: '\u{1F9C2}', desc: 'Exotic spices boost dish value',   baseCost: 500,     perLevel: 8,   maxLvl: 25, growth: 1.25 },
+  { id: 'recipe',   name: 'Recipe Book',        emoji: '\u{1F4D6}', desc: 'New recipes increase earnings',    baseCost: 2000,    perLevel: 25,  maxLvl: 20, growth: 1.3 },
+  { id: 'decor',    name: 'Restaurant Decor',   emoji: '\u{1F3A8}', desc: 'Better ambiance, bigger tips',     baseCost: 8000,    perLevel: 80,  maxLvl: 15, growth: 1.35 },
+  { id: 'market',   name: 'Marketing Campaign', emoji: '\u{1F4E3}', desc: 'More customers, more coins',      baseCost: 30000,   perLevel: 250, maxLvl: 12, growth: 1.4 },
+  { id: 'michelin', name: 'Michelin Star',      emoji: '\u2B50',    desc: 'Prestigious recognition',         baseCost: 150000,  perLevel: 1000,maxLvl: 5,  growth: 1.5 },
+];
+
+const STAFF = [
+  { id: 'prep',    name: 'Prep Cook',       emoji: '\u{1F9D1}\u200D\u{1F373}', desc: 'Preps ingredients automatically', cps: 1,     baseCost: 50 },
+  { id: 'line',    name: 'Line Cook',       emoji: '\u{1F468}\u200D\u{1F373}', desc: 'Works the station',               cps: 5,     baseCost: 300 },
+  { id: 'sous',    name: 'Sous Chef',       emoji: '\u{1F469}\u200D\u{1F373}', desc: 'Your second in command',          cps: 20,    baseCost: 1200 },
+  { id: 'pastry',  name: 'Pastry Chef',     emoji: '\u{1F9C1}',                desc: 'Desserts bring big money',        cps: 75,    baseCost: 5000 },
+  { id: 'head',    name: 'Head Chef',       emoji: '\u{1F468}\u200D\u{1F52C}', desc: 'Runs the kitchen solo',           cps: 250,   baseCost: 20000 },
+  { id: 'critic',  name: 'Food Critic',     emoji: '\u{1F4F0}',                desc: 'Rave reviews boost income',       cps: 1000,  baseCost: 100000 },
+  { id: 'mogul',   name: 'Restaurant Mogul', emoji: '\u{1F451}',               desc: 'Opens franchise locations',       cps: 5000,  baseCost: 500000 },
+];
+
+const ACHIEVEMENTS = [
+  { id: 'startingyourempire',    name: 'Starting Your Empire',    desc: 'Cook your first dish',              check: s => s.totalClicks >= 1 },
+  { id: 'onaroll',               name: 'On a Roll',               desc: 'Cook 50 dishes',                    check: s => s.totalClicks >= 50 },
+  { id: 'dozen',                 name: 'Dozen',                   desc: 'Cook 12 dishes in a combo',         check: s => s.maxCombo >= 12 },
+  { id: 'fastfood',              name: 'Fast Food',               desc: 'Reach a 5x combo',                  check: s => s.comboMultiplier >= 5 },
+  { id: 'knifeskills',           name: 'Knife Skills',            desc: 'Buy Better Knives level 10',        check: s => (s.upgrades.knife||0) >= 10 },
+  { id: 'spicemaster',           name: 'Spice Master',            desc: 'Buy Spice Rack level 10',           check: s => (s.upgrades.spice||0) >= 10 },
+  { id: 'spicemerchant',         name: 'Spice Merchant',          desc: 'Buy Spice Rack level 25',           check: s => (s.upgrades.spice||0) >= 25 },
+  { id: 'hiredhelp',             name: 'Hired Help',              desc: 'Hire your first staff member',      check: s => s.totalStaff >= 1 },
+  { id: 'chefdecuisine',         name: 'Chef de Cuisine',         desc: 'Hire a Head Chef',                  check: s => (s.staff.head||0) >= 1 },
+  { id: 'piggybank',             name: 'Piggy Bank',              desc: 'Earn 1,000 total coins',            check: s => s.totalCoins >= 1000 },
+  { id: 'moneybags',             name: 'Money Bags',              desc: 'Earn 100,000 total coins',          check: s => s.totalCoins >= 100000 },
+  { id: 'golden',                name: 'Golden',                  desc: 'Earn 1,000,000 total coins',        check: s => s.totalCoins >= 1000000 },
+  { id: 'patronpleaser',         name: 'Patron Pleaser',          desc: 'Serve 500 dishes',                  check: s => s.totalClicks >= 500 },
+  { id: 'impressiveindeed',      name: 'Impressive Indeed',       desc: 'Reach 100 coins/second',            check: s => s.cps >= 100 },
+  { id: 'makingthegrade',        name: 'Making the Grade',        desc: 'Buy any upgrade to level 20',       check: s => Object.values(s.upgrades).some(v => v >= 20) },
+  { id: 'fullmenu',              name: 'Full Menu',               desc: 'Unlock all dishes',                 check: s => s.dishIndex >= DISHES.length - 1 },
+  { id: 'greasejockey',          name: 'Grease Jockey',           desc: 'Cook 1,000 dishes',                 check: s => s.totalClicks >= 1000 },
+  { id: 'firefighter',           name: 'Firefighter',             desc: 'Cook 5,000 dishes',                 check: s => s.totalClicks >= 5000 },
+  { id: 'pepperchop',            name: 'Pepper Chop',             desc: 'Reach a 20x combo',                 check: s => s.comboMultiplier >= 20 },
+  { id: 'perfect4',              name: 'Perfect 4',               desc: 'Buy 4 different upgrades',          check: s => Object.keys(s.upgrades).length >= 4 },
+  { id: 'pestcontrol',           name: 'Pest Control',            desc: 'Hire 3 types of staff',             check: s => Object.keys(s.staff).length >= 3 },
+  { id: 'headlines',             name: 'Headlines',               desc: 'Hire a Food Critic',                check: s => (s.staff.critic||0) >= 1 },
+  { id: 'spotless',              name: 'Spotless',                desc: 'Reach 500 coins/second',            check: s => s.cps >= 500 },
+  { id: 'squeakyclean',          name: 'Squeaky Clean',           desc: 'Reach 2,000 coins/second',          check: s => s.cps >= 2000 },
+  { id: 'specialtreatment',      name: 'Special Treatment',       desc: 'Get a Michelin Star',               check: s => (s.upgrades.michelin||0) >= 1 },
+  { id: 'steakula',              name: 'Steak-ula',               desc: 'Unlock Steak dish',                 check: s => s.dishIndex >= 7 },
+  { id: 'dusty',                 name: 'Dusty',                   desc: 'Play for 30 minutes',               check: s => s.playTime >= 1800 },
+  { id: 'monkeybusiness',        name: 'Monkey Business',         desc: 'Click 100 times in 30 seconds',     check: s => s.clickRate >= 100 },
+  { id: 'ned',                   name: 'Ned',                     desc: 'Prestige for the first time',       check: s => s.prestigeLevel >= 1 },
+  { id: 'exceptionalcuisine',    name: 'Exceptional Cuisine',     desc: 'Reach prestige level 5',            check: s => s.prestigeLevel >= 5 },
+];
+
+// ----- STATE -----
+let state;
+const defaultState = () => ({
+  coins: 0,
+  totalCoins: 0,
+  totalClicks: 0,
+  upgrades: {},
+  staff: {},
+  achievements: [],
+  prestigeLevel: 0,
+  prestigeMultiplier: 1,
+  dishIndex: 0,
+  playTime: 0,
+  lastSave: Date.now(),
+  comboCount: 0,
+  lastClickTime: 0,
+});
+
+// ----- DOM REFS -----
+const $ = id => document.getElementById(id);
+const coinDisplay = $('coinDisplay');
+const cpsDisplay = $('cpsDisplay');
+const dishEmoji = $('dishEmoji');
+const dishName = $('dishName');
+const dishValue = $('dishValue');
+const cookBtn = $('cookBtn');
+const cookArea = $('cookArea');
+const comboFill = $('comboFill');
+const comboText = $('comboText');
+const multipliers = $('multipliers');
+const upgradeList = $('upgradeList');
+const staffList = $('staffList');
+const achGrid = $('achGrid');
+const achCount = $('achCount');
+const toast = $('toast');
+const loadFill = $('loadFill');
+const prestigeBtn = $('prestigeBtn');
+const prestigeMult = $('prestigeMult');
+const prestigeInfo = $('prestigeInfo');
+const prestigeStars = $('prestigeStars');
+
+// ----- HELPERS -----
+function fmt(n) {
+  if (n >= 1e12) return (n/1e12).toFixed(1) + 'T';
+  if (n >= 1e9) return (n/1e9).toFixed(1) + 'B';
+  if (n >= 1e6) return (n/1e6).toFixed(1) + 'M';
+  if (n >= 1e3) return (n/1e3).toFixed(1) + 'K';
+  return Math.floor(n).toLocaleString();
+}
+
+function showToast(msg, imgSrc) {
+  toast.innerHTML = (imgSrc ? '<img src="'+imgSrc+'" width="28" height="28">' : '') + msg;
+  toast.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
+function flashSave() {
+  const si = $('saveInd');
+  si.classList.add('show');
+  clearTimeout(si._t);
+  si._t = setTimeout(() => si.classList.remove('show'), 1500);
+}
+
+// ----- CORE CALCULATIONS -----
+function getClickValue() {
+  let base = 1;
+  UPGRADES.forEach(u => {
+    const lvl = state.upgrades[u.id] || 0;
+    base += u.perLevel * lvl;
+  });
+  // Dish multiplier: each dish level gives +50%
+  const dishMult = 1 + state.dishIndex * 0.5;
+  // Prestige multiplier
+  const prestigeMult = state.prestigeMultiplier;
+  // Combo
+  const comboMult = getComboMultiplier();
+  return Math.floor(base * dishMult * prestigeMult * comboMult);
+}
+
+function getCPS() {
+  let cps = 0;
+  STAFF.forEach(s => {
+    const count = state.staff[s.id] || 0;
+    cps += s.cps * count;
+  });
+  // Apply dish & prestige mult to auto too
+  const dishMult = 1 + state.dishIndex * 0.5;
+  return Math.floor(cps * dishMult * state.prestigeMultiplier);
+}
+
+function getUpgradeCost(upgrade, level) {
+  return Math.floor(upgrade.baseCost * Math.pow(upgrade.growth, level));
+}
+
+function getStaffCost(staff, count) {
+  return Math.floor(staff.baseCost * Math.pow(1.15, count));
+}
+
+// ----- COMBO SYSTEM -----
+let comboDecayTimer = null;
+let comboMultiplierVal = 1;
+let recentClicks = [];
+
+function getComboMultiplier() {
+  return comboMultiplierVal;
+}
+
+function tickCombo() {
+  const now = Date.now();
+  // Remove clicks older than 3 seconds
+  recentClicks = recentClicks.filter(t => now - t < 3000);
+  const rate = recentClicks.length;
+  // Combo multiplier based on click speed
+  if (rate >= 20) comboMultiplierVal = 10;
+  else if (rate >= 15) comboMultiplierVal = 7;
+  else if (rate >= 10) comboMultiplierVal = 5;
+  else if (rate >= 7) comboMultiplierVal = 3;
+  else if (rate >= 4) comboMultiplierVal = 2;
+  else comboMultiplierVal = 1;
+
+  state.comboCount = Math.max(state.comboCount, rate);
+
+  const pct = Math.min(rate / 20 * 100, 100);
+  comboFill.style.width = pct + '%';
+  comboText.textContent = 'x' + comboMultiplierVal;
+}
+
+// ----- CLICK HANDLER -----
+function doCook(e) {
+  const val = getClickValue();
+  state.coins += val;
+  state.totalCoins += val;
+  state.totalClicks++;
+  recentClicks.push(Date.now());
+  state.lastClickTime = Date.now();
+
+  // Float text
+  const rect = cookArea.getBoundingClientRect();
+  const ft = document.createElement('div');
+  ft.className = 'float-text';
+  ft.textContent = '+' + fmt(val);
+  const x = (e && e.clientX) ? e.clientX - rect.left : rect.width/2;
+  const y = (e && e.clientY) ? e.clientY - rect.top : rect.height * 0.3;
+  ft.style.left = x + 'px';
+  ft.style.top = y + 'px';
+  cookArea.appendChild(ft);
+  setTimeout(() => ft.remove(), 800);
+
+  // Check dish unlocks
+  checkDishUnlock();
+  updateUI();
+}
+
+function checkDishUnlock() {
+  for (let i = state.dishIndex + 1; i < DISHES.length; i++) {
+    if (state.totalCoins >= DISHES[i].unlock) {
+      state.dishIndex = i;
+      showToast('New Dish: ' + DISHES[i].emoji + ' ' + DISHES[i].name + '!');
+    } else break;
+  }
+}
+
+// ----- BUY UPGRADE -----
+function buyUpgrade(id) {
+  const u = UPGRADES.find(x => x.id === id);
+  const lvl = state.upgrades[id] || 0;
+  if (lvl >= u.maxLvl) return;
+  const cost = getUpgradeCost(u, lvl);
+  if (state.coins < cost) return;
+  state.coins -= cost;
+  state.upgrades[id] = lvl + 1;
+  updateUI();
+}
+
+// ----- HIRE STAFF -----
+function hireStaff(id) {
+  const s = STAFF.find(x => x.id === id);
+  const count = state.staff[id] || 0;
+  const cost = getStaffCost(s, count);
+  if (state.coins < cost) return;
+  state.coins -= cost;
+  state.staff[id] = count + 1;
+  updateUI();
+}
+
+// ----- PRESTIGE -----
+function doPrestige() {
+  if (state.totalCoins < 10000) return;
+  const newLevel = state.prestigeLevel + 1;
+  const newMult = 1 + newLevel * 0.25;
+  // Keep achievements and prestige stats
+  const kept = {
+    achievements: [...state.achievements],
+    prestigeLevel: newLevel,
+    prestigeMultiplier: newMult,
+    totalCoins: state.totalCoins,
+    totalClicks: state.totalClicks,
+    playTime: state.playTime,
+  };
+  state = defaultState();
+  Object.assign(state, kept);
+  showToast('\u2B50 Prestige ' + newLevel + '! x' + newMult.toFixed(2) + ' multiplier');
+  updateUI();
+  save();
+}
+
+// ----- ACHIEVEMENTS -----
+function checkAchievements() {
+  const snapshot = {
+    totalClicks: state.totalClicks,
+    totalCoins: state.totalCoins,
+    comboMultiplier: comboMultiplierVal,
+    maxCombo: state.comboCount,
+    upgrades: state.upgrades,
+    staff: state.staff,
+    totalStaff: Object.values(state.staff).reduce((a,b) => a+b, 0),
+    cps: getCPS(),
+    dishIndex: state.dishIndex,
+    playTime: state.playTime,
+    prestigeLevel: state.prestigeLevel,
+    clickRate: recentClicks.length,
+  };
+
+  ACHIEVEMENTS.forEach(a => {
+    if (!state.achievements.includes(a.id) && a.check(snapshot)) {
+      state.achievements.push(a.id);
+      showToast(
+        '\u{1F3C6} ' + a.name + '!',
+        '/assets/achievements/icon_achievements_crystal_' + a.id + '.png'
+      );
+    }
+  });
+}
+
+// ----- RENDERING -----
+function updateUI() {
+  const cv = getClickValue();
+  const cps = getCPS();
+
+  coinDisplay.textContent = fmt(state.coins);
+  cpsDisplay.textContent = fmt(cps) + '/s';
+
+  const dish = DISHES[state.dishIndex];
+  dishEmoji.textContent = dish.emoji;
+  dishName.textContent = dish.name;
+  dishValue.textContent = fmt(cv);
+  cookBtn.querySelector('.emoji').textContent = dish.emoji;
+
+  // Multiplier badges
+  let badges = '';
+  if (state.prestigeMultiplier > 1) badges += '<span class="mult-badge">Prestige x' + state.prestigeMultiplier.toFixed(2) + '</span>';
+  if (state.dishIndex > 0) badges += '<span class="mult-badge">' + dish.emoji + ' x' + (1 + state.dishIndex * 0.5).toFixed(1) + '</span>';
+  if (comboMultiplierVal > 1) badges += '<span class="mult-badge">Combo x' + comboMultiplierVal + '</span>';
+  multipliers.innerHTML = badges;
+
+  // Prestige
+  const canPrestige = state.totalCoins >= 10000;
+  prestigeBtn.disabled = !canPrestige;
+  const nextMult = 1 + (state.prestigeLevel + 1) * 0.25;
+  prestigeMult.textContent = nextMult.toFixed(2);
+  prestigeStars.textContent = '\u2B50'.repeat(Math.min(state.prestigeLevel, 20));
+  prestigeInfo.textContent = canPrestige
+    ? 'Reset everything for a x' + nextMult.toFixed(2) + ' permanent multiplier'
+    : 'Earn ' + fmt(10000 - state.totalCoins) + ' more coins to unlock prestige';
+
+  // Stats
+  $('statTotal').textContent = fmt(state.totalCoins);
+  $('statClicks').textContent = fmt(state.totalClicks);
+  $('statDishes').textContent = fmt(state.totalClicks);
+  $('statPrestige').textContent = state.prestigeLevel;
+  $('statAch').textContent = state.achievements.length + '/30';
+  $('statTime').textContent = Math.floor(state.playTime / 60) + 'm';
+
+  achCount.textContent = state.achievements.length;
+}
+
+function renderUpgrades() {
+  upgradeList.innerHTML = UPGRADES.map(u => {
+    const lvl = state.upgrades[u.id] || 0;
+    const maxed = lvl >= u.maxLvl;
+    const cost = maxed ? 0 : getUpgradeCost(u, lvl);
+    const canBuy = !maxed && state.coins >= cost;
+    return '<div class="upgrade-card' + (maxed ? ' maxed' : '') + '" data-upgrade="' + u.id + '">'
+      + '<div class="upgrade-icon">' + u.emoji + '</div>'
+      + '<div class="upgrade-info">'
+      + '<div class="upgrade-name">' + u.name + '</div>'
+      + '<div class="upgrade-desc">' + u.desc + '</div>'
+      + '<div class="upgrade-meta">'
+      + '<span class="upgrade-level">Lv ' + lvl + (maxed ? ' MAX' : '/' + u.maxLvl) + '</span>'
+      + (maxed ? '' : '<span class="upgrade-cost' + (canBuy ? '' : ' cant-afford') + '">\u{1FA99} ' + fmt(cost) + '</span>')
+      + '</div></div></div>';
+  }).join('');
+
+  upgradeList.querySelectorAll('.upgrade-card').forEach(el => {
+    el.addEventListener('click', () => {
+      buyUpgrade(el.dataset.upgrade);
+      renderUpgrades();
+    });
+  });
+}
+
+function renderStaff() {
+  staffList.innerHTML = STAFF.map(s => {
+    const count = state.staff[s.id] || 0;
+    const cost = getStaffCost(s, count);
+    const canBuy = state.coins >= cost;
+    return '<div class="staff-card' + (count > 0 ? ' owned' : '') + '" data-staff="' + s.id + '">'
+      + '<div class="staff-icon">' + s.emoji + '</div>'
+      + '<div class="staff-info">'
+      + '<div class="staff-name">' + s.name + (count > 0 ? ' (x' + count + ')' : '') + '</div>'
+      + '<div class="staff-desc">' + s.desc + '</div>'
+      + '<div class="staff-earn">+' + fmt(s.cps * (1 + state.dishIndex * 0.5) * state.prestigeMultiplier) + '/s each</div>'
+      + '</div>'
+      + '<div class="staff-cost' + (canBuy ? '' : ' cant-afford') + '">\u{1FA99} ' + fmt(cost) + '</div>'
+      + '</div>';
+  }).join('');
+
+  staffList.querySelectorAll('.staff-card').forEach(el => {
+    el.addEventListener('click', () => {
+      hireStaff(el.dataset.staff);
+      renderStaff();
+    });
+  });
+}
+
+function renderAchievements() {
+  achGrid.innerHTML = ACHIEVEMENTS.map(a => {
+    const unlocked = state.achievements.includes(a.id);
+    return '<div class="ach-card ' + (unlocked ? 'unlocked' : 'locked') + '" title="' + a.desc + '">'
+      + '<img class="ach-img" src="/assets/achievements/icon_achievements_crystal_' + a.id + '.png" alt="' + a.name + '" loading="lazy">'
+      + (unlocked ? '' : '<img class="ach-lock" src="/assets/ui/lock.png" alt="locked">')
+      + '<div class="ach-name">' + a.name + '</div>'
+      + '</div>';
+  }).join('');
+}
+
+// ----- TAB SWITCHING -----
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    $('panel-' + tab.dataset.tab).classList.add('active');
+    // Re-render the active panel
+    const t = tab.dataset.tab;
+    if (t === 'upgrades') renderUpgrades();
+    else if (t === 'staff') renderStaff();
+    else if (t === 'achievements') renderAchievements();
+  });
+});
+
+// ----- COOK BUTTON -----
+cookBtn.addEventListener('click', doCook);
+cookBtn.addEventListener('touchstart', e => { e.preventDefault(); doCook(e.touches[0]); }, { passive: false });
+
+// ----- PRESTIGE BUTTON -----
+prestigeBtn.addEventListener('click', () => {
+  if (confirm('Prestige will reset your coins, upgrades, and staff. You keep achievements and gain a permanent multiplier. Continue?')) {
+    doPrestige();
+  }
+});
+
+// ----- SAVE / LOAD -----
+const SAVE_KEY = 'orderup_kitchen_chaos';
+
+function save() {
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+    flashSave();
+  } catch(e) {}
+}
+
+function load() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (raw) {
+      const saved = JSON.parse(raw);
+      state = Object.assign(defaultState(), saved);
+      // Offline earnings
+      const elapsed = (Date.now() - state.lastSave) / 1000;
+      if (elapsed > 10) {
+        const offlineCoins = Math.floor(getCPS() * Math.min(elapsed, 7200) * 0.5);
+        if (offlineCoins > 0) {
+          state.coins += offlineCoins;
+          state.totalCoins += offlineCoins;
+          setTimeout(() => showToast('Welcome back! +' + fmt(offlineCoins) + ' offline coins'), 1000);
+        }
+      }
+    } else {
+      state = defaultState();
+    }
+  } catch(e) {
+    state = defaultState();
+  }
+  state.lastSave = Date.now();
+}
+
+// ----- GAME LOOP -----
+let lastTick = performance.now();
+
+function gameLoop(now) {
+  const dt = (now - lastTick) / 1000;
+  lastTick = now;
+
+  // Auto-earn from staff
+  const cps = getCPS();
+  if (cps > 0) {
+    const earn = cps * dt;
+    state.coins += earn;
+    state.totalCoins += earn;
+  }
+
+  // Combo decay
+  tickCombo();
+
+  // Play time
+  state.playTime += dt;
+
+  // Check achievements periodically
+  if (Math.random() < 0.05) checkAchievements();
+
+  // Check dish unlocks
+  checkDishUnlock();
+
+  // UI update
+  updateUI();
+
+  requestAnimationFrame(gameLoop);
+}
+
+// ----- LOADING SCREEN -----
+function startLoading() {
+  let progress = 0;
+  const imgs = [
+    '/assets/ui/icon.png',
+    '/assets/ui/lock.png',
+    '/assets/ui/check.png',
+    '/assets/ui/achievement_popup.png',
+  ];
+  // Preload achievement images
+  ACHIEVEMENTS.forEach(a => {
+    imgs.push('/assets/achievements/icon_achievements_crystal_' + a.id + '.png');
+  });
+
+  let loaded = 0;
+  const total = imgs.length;
+
+  function onLoad() {
+    loaded++;
+    progress = loaded / total * 100;
+    loadFill.style.width = progress + '%';
+    if (loaded >= total) finishLoading();
+  }
+
+  imgs.forEach(src => {
+    const img = new Image();
+    img.onload = onLoad;
+    img.onerror = onLoad;
+    img.src = src;
+  });
+
+  // Failsafe
+  setTimeout(finishLoading, 5000);
+}
+
+let loadingDone = false;
+function finishLoading() {
+  if (loadingDone) return;
+  loadingDone = true;
+
+  load();
+  renderUpgrades();
+  renderStaff();
+  renderAchievements();
+  updateUI();
+
+  $('loading').classList.add('done');
+  $('app').classList.add('show');
+
+  requestAnimationFrame(gameLoop);
+
+  // Auto-save every 30s
+  setInterval(() => { state.lastSave = Date.now(); save(); }, 30000);
+}
+
+// ----- SERVICE WORKER -----
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
+// ----- INIT -----
+startLoading();
+
+})();
+</script>
+</body>
+</html>

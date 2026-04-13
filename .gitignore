@@ -1,0 +1,22 @@
+node_modules/
+.DS_Store
+*.log
+.claudeignore
+.claudeignore.txt
+
+# Original APK files (not needed for web deploy)
+classes.dex
+resources.arsc
+AndroidManifest.xml
+META-INF/
+com/
+org/
+lib/
+ad_resources/
+assets/api_key.txt
+mime.types
+spec.yaml
+res/
+assets/chefdata.png
+assets/chefmisc.png
+assets/chefmisc_properties.png
