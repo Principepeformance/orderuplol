@@ -5,1226 +5,1135 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#e8590c">
-<meta name="description" content="Order Up! Kitchen Chaos - Cook, assemble, and serve dishes in this fast-paced restaurant game!">
+<meta name="theme-color" content="#d4570a">
+<meta name="description" content="Order Up! Kitchen Chaos - Run your restaurant from diner to world-class. Cook, season, and serve!">
 <meta property="og:title" content="Order Up! Kitchen Chaos">
-<meta property="og:description" content="Run your kitchen! Cook at stations, assemble orders, and serve customers before they leave!">
+<meta property="og:description" content="Cook at stations, season with spices, serve customers, and build your restaurant empire!">
 <meta property="og:image" content="/assets/ui/icon.png">
-<meta property="og:type" content="website">
 <title>Order Up! Kitchen Chaos</title>
 <link rel="icon" type="image/png" href="/assets/ui/icon.png">
 <link rel="apple-touch-icon" href="/assets/ui/icon.png">
 <link rel="manifest" href="/manifest.json">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{height:100%;overflow:hidden;background:#1a0f0a;touch-action:none;user-select:none;-webkit-tap-highlight-color:transparent}
-body{font-family:'Segoe UI',system-ui,sans-serif}
-canvas{display:block;width:100%;height:100%;object-fit:contain;cursor:pointer}
-
-/* Loading */
-#loading{position:fixed;inset:0;background:#1a0f0a;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;transition:opacity .6s}
+html,body{height:100%;overflow:hidden;background:#0e0906;touch-action:none;user-select:none;-webkit-tap-highlight-color:transparent}
+canvas{display:block;margin:0 auto}
+#loading{position:fixed;inset:0;background:#0e0906;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;transition:opacity .6s}
 #loading.done{opacity:0;pointer-events:none}
-#loading h1{font-size:2.2rem;color:#e8590c;margin-bottom:4px;text-shadow:0 2px 8px rgba(232,89,12,.4)}
-#loading p{color:#a8896a;margin-bottom:20px;font-size:.95rem}
-.load-bar{width:220px;height:8px;background:#2a1a14;border-radius:4px;overflow:hidden;border:1px solid #3a2a1e}
-.load-fill{height:100%;background:linear-gradient(90deg,#e8590c,#f59e0b);width:0%;transition:width .2s;border-radius:4px}
+#loading h1{font-size:2.4rem;color:#d4570a;text-shadow:0 2px 12px rgba(212,87,10,.5);font-family:Georgia,serif}
+#loading p{color:#a08060;margin:4px 0 20px;font-family:Georgia,serif;font-style:italic}
+.lbar{width:240px;height:10px;background:#1e140e;border-radius:5px;overflow:hidden;border:1px solid #3a2a1e}
+.lfill{height:100%;background:linear-gradient(90deg,#d4570a,#e8a020);width:0%;transition:width .2s;border-radius:5px}
 </style>
 </head>
 <body>
-<div id="loading">
-  <h1>Order Up!</h1>
-  <p>Kitchen Chaos</p>
-  <div class="load-bar"><div class="load-fill" id="loadFill"></div></div>
-</div>
-<canvas id="game"></canvas>
-
+<div id="loading"><h1>Order Up!</h1><p>Kitchen Chaos</p><div class="lbar"><div class="lfill" id="lf"></div></div></div>
+<canvas id="G"></canvas>
 <script>
 (function(){
 'use strict';
 
-// ============================================================
-// ORDER UP! KITCHEN CHAOS — Time Management Cooking Game
-// ============================================================
+// =====================================================
+// ORDER UP! KITCHEN CHAOS
+// Faithful recreation: 5 restaurants, cooking stations,
+// spice system, chef helpers, food critic, minigames,
+// order tickets, day shifts, star ratings
+// =====================================================
 
-const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d');
-const loadFill = document.getElementById('loadFill');
-const loadingEl = document.getElementById('loading');
+const cv=document.getElementById('G'),cx=cv.getContext('2d');
+let W=800,H=600,SC=1;
 
-// ----- RESPONSIVE CANVAS -----
-let W = 800, H = 600, SCALE = 1;
-function resize() {
-  const dpr = window.devicePixelRatio || 1;
-  const w = window.innerWidth;
-  const h = window.innerHeight;
-  // Maintain 4:3ish aspect
-  const aspect = 4/3;
-  let cw, ch;
-  if (w / h > aspect) { ch = h; cw = h * aspect; }
-  else { cw = w; ch = w / aspect; }
-  canvas.width = Math.round(cw * dpr);
-  canvas.height = Math.round(ch * dpr);
-  canvas.style.width = cw + 'px';
-  canvas.style.height = ch + 'px';
-  W = canvas.width;
-  H = canvas.height;
-  SCALE = W / 800;
-  ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0);
+function resize(){
+  const dpr=window.devicePixelRatio||1,w=window.innerWidth,h=window.innerHeight;
+  const a=4/3;let cw,ch;
+  if(w/h>a){ch=h;cw=h*a}else{cw=w;ch=w/a}
+  cv.width=Math.round(cw*dpr);cv.height=Math.round(ch*dpr);
+  cv.style.width=cw+'px';cv.style.height=ch+'px';
+  W=cv.width;H=cv.height;SC=W/800;
+  cx.setTransform(SC,0,0,SC,0,0);
 }
-window.addEventListener('resize', resize);
-resize();
+window.addEventListener('resize',resize);resize();
 
-// ----- COLORS -----
-const C = {
-  bg: '#2a1810', wallTop: '#5c3a28', wallBot: '#3d2418', counter: '#8B6914',
-  counterTop: '#a07828', counterFront: '#6b5010', floor: '#4a3020',
-  stationBg: '#3a2818', stationBorder: '#5a4020', stationActive: '#e8590c',
-  plateBase: '#e8e0d0', plateShadow: '#c0b8a0',
-  textWhite: '#fff', textGold: '#f5c542', textRed: '#ff4444', textGreen: '#44cc44',
-  textDim: '#a08060', uiBg: 'rgba(20,12,8,.85)', uiBorder: '#5a4020',
-  heart: '#ff3355', heartLow: '#882233',
-  bubbleBg: 'rgba(255,255,255,.95)', bubbleBorder: '#ccc',
+// ── RESTAURANTS ──
+const RESTAURANTS=[
+  {id:'diner',name:"Gravy Chug Pub",desc:"A humble roadside diner",color:'#c44',unlockCost:0,
+    dishes:[
+      {name:'Fried Egg',emoji:'🍳',ingredients:['egg'],station:'grill',time:2,value:8},
+      {name:'Bacon',emoji:'🥓',ingredients:['bacon'],station:'grill',time:2.5,value:10},
+      {name:'Burger',emoji:'🍔',ingredients:['patty','bun'],station:'grill',time:3,value:15},
+      {name:'Fries',emoji:'🍟',ingredients:['potato'],station:'fryer',time:3,value:12},
+      {name:'Corn Dog',emoji:'🌭',ingredients:['hotdog'],station:'fryer',time:2.5,value:10},
+      {name:'Salad',emoji:'🥗',ingredients:['lettuce'],station:'chop',time:1.5,value:8},
+    ]},
+  {id:'mexican',name:"El Fuego",desc:"Authentic Mexican cuisine",color:'#2a2',unlockCost:200,
+    dishes:[
+      {name:'Taco',emoji:'🌮',ingredients:['tortilla','meat'],station:'grill',time:3,value:18},
+      {name:'Burrito',emoji:'🌯',ingredients:['tortilla','rice','beans'],station:'grill',time:4,value:25},
+      {name:'Nachos',emoji:'🧀',ingredients:['chips','cheese'],station:'oven',time:3,value:16},
+      {name:'Quesadilla',emoji:'🫓',ingredients:['tortilla','cheese'],station:'grill',time:2.5,value:14},
+      {name:'Churro',emoji:'🥖',ingredients:['dough'],station:'fryer',time:3,value:12},
+      {name:'Guacamole',emoji:'🥑',ingredients:['avocado'],station:'chop',time:2,value:10},
+    ]},
+  {id:'italian',name:"Chez Palazzo",desc:"Fine Italian dining",color:'#36a',unlockCost:500,
+    dishes:[
+      {name:'Pasta',emoji:'🍝',ingredients:['noodles','sauce'],station:'pot',time:4,value:22},
+      {name:'Pizza',emoji:'🍕',ingredients:['dough','cheese','sauce'],station:'oven',time:5,value:30},
+      {name:'Risotto',emoji:'🍚',ingredients:['rice','broth'],station:'saute',time:4,value:24},
+      {name:'Bruschetta',emoji:'🥖',ingredients:['bread','tomato'],station:'chop',time:2,value:14},
+      {name:'Tiramisu',emoji:'🍰',ingredients:['cream','coffee'],station:'mix',time:3.5,value:20},
+      {name:'Minestrone',emoji:'🍲',ingredients:['veggies','broth'],station:'pot',time:4,value:18},
+    ]},
+  {id:'asian',name:"Jade Dragon",desc:"Pan-Asian fusion",color:'#c42',unlockCost:1000,
+    dishes:[
+      {name:'Sushi Roll',emoji:'🍣',ingredients:['rice','fish'],station:'chop',time:3.5,value:26},
+      {name:'Ramen',emoji:'🍜',ingredients:['noodles','broth','egg'],station:'pot',time:5,value:32},
+      {name:'Stir Fry',emoji:'🥘',ingredients:['veggies','meat'],station:'saute',time:3.5,value:24},
+      {name:'Dumplings',emoji:'🥟',ingredients:['dough','pork'],station:'steamer',time:4,value:22},
+      {name:'Tempura',emoji:'🍤',ingredients:['shrimp'],station:'fryer',time:3,value:20},
+      {name:'Fried Rice',emoji:'🍚',ingredients:['rice','egg'],station:'saute',time:3,value:18},
+    ]},
+  {id:'worldclass',name:"Fortified Chef",desc:"World-class haute cuisine",color:'#a2c',unlockCost:2500,
+    dishes:[
+      {name:'Lobster',emoji:'🦞',ingredients:['lobster','butter'],station:'pot',time:6,value:45},
+      {name:'Filet Mignon',emoji:'🥩',ingredients:['steak'],station:'grill',time:5.5,value:42},
+      {name:'Soufflé',emoji:'🧁',ingredients:['egg','cream','sugar'],station:'oven',time:6,value:40},
+      {name:'Crème Brûlée',emoji:'🍮',ingredients:['cream','sugar'],station:'oven',time:5,value:35},
+      {name:'Duck Confit',emoji:'🍗',ingredients:['duck','herbs'],station:'saute',time:5.5,value:38},
+      {name:'Wagyu Tartare',emoji:'🥩',ingredients:['wagyu'],station:'chop',time:4,value:36},
+    ]},
+];
+
+// ── COOKING STATIONS ──
+const STATION_DEFS=[
+  {id:'grill',name:'Grill',emoji:'🔥',action:'Flip',actionEmoji:'👆'},
+  {id:'fryer',name:'Deep Fryer',emoji:'🫕',action:'Lift',actionEmoji:'👆'},
+  {id:'chop',name:'Cutting Board',emoji:'🔪',action:'Chop',actionEmoji:'👆'},
+  {id:'pot',name:'Pot',emoji:'🍲',action:'Stir',actionEmoji:'🥄'},
+  {id:'oven',name:'Oven',emoji:'♨️',action:'Check',actionEmoji:'👀'},
+  {id:'saute',name:'Sauté Pan',emoji:'🍳',action:'Toss',actionEmoji:'👆'},
+  {id:'steamer',name:'Steamer',emoji:'💨',action:'Wait',actionEmoji:'⏳'},
+  {id:'mix',name:'Mixing Bowl',emoji:'🥣',action:'Mix',actionEmoji:'🥄'},
+];
+
+// ── SPICE TYPES ──
+const SPICES=[
+  {id:'pepper',name:'Pepper',emoji:'🌶️',color:'#c33',bonus:0.15},
+  {id:'salt',name:'Salt',emoji:'🧂',color:'#ddd',bonus:0.1},
+  {id:'garlic',name:'Garlic',emoji:'🧄',color:'#ed8',bonus:0.12},
+  {id:'herbs',name:'Herbs',emoji:'🌿',color:'#4a4',bonus:0.15},
+  {id:'sugar',name:'Sugar',emoji:'🍬',color:'#faf',bonus:0.1},
+  {id:'soy',name:'Soy Sauce',emoji:'🫘',color:'#642',bonus:0.12},
+];
+
+// ── CUSTOMER TYPES ──
+const CUST_TYPES=[
+  {id:'regular',name:'Regular',emoji:'👨',patience:1,tipMult:1},
+  {id:'regular2',name:'Regular',emoji:'👩',patience:1,tipMult:1},
+  {id:'mom',name:'Mom',emoji:'👵',patience:1.3,tipMult:1.1},
+  {id:'son',name:'Son',emoji:'👦',patience:0.8,tipMult:0.9},
+  {id:'daughter',name:'Daughter',emoji:'👧',patience:0.85,tipMult:0.9},
+  {id:'spicy_lover',name:'Spicy Lover',emoji:'🤠',patience:0.9,tipMult:1.3,prefSpice:'pepper'},
+  {id:'meat_lover',name:'Meat Lover',emoji:'💪',patience:0.85,tipMult:1.2},
+  {id:'vegan',name:'Vegan',emoji:'🧘',patience:1.1,tipMult:1.2},
+  {id:'diet_guy',name:'Diet Guy',emoji:'🏃',patience:0.7,tipMult:1.0},
+  {id:'food_critic',name:'Food Critic',emoji:'🧐',patience:0.5,tipMult:3.0,isCritic:true},
+  {id:'health_inspector',name:'Health Inspector',emoji:'👨‍⚕️',patience:0.6,tipMult:0,isInspector:true},
+];
+
+// ── GAME STATE ──
+let G={
+  screen:'title', // title,worldmap,restaurant,cooking,dayEnd,spiceRack,achievements,shop
+  save:{
+    coins:0,totalCoins:0,currentRestaurant:0,unlockedRestaurants:[0],
+    stars:{},achievements:[],dishesServed:0,totalDays:0,
+    helpers:{fry_guy:false,spice_guy:false},
+    spicesOwned:{pepper:3,salt:3,garlic:0,herbs:0,sugar:0,soy:0},
+    upgrades:{cookSpeed:0,patience:0,tipBonus:0},
+  },
+  // Cooking day state
+  day:null,customers:[],stations:{},orders:[],plate:null,
+  spiceTarget:null,selectedDish:null,
+  score:0,tipsEarned:0,customersServed:0,customersLost:0,
+  dayTimer:0,maxDayTime:90,
+  combo:0,comboTimer:0,
+  floats:[],particles:[],shakeT:0,time:0,
+  // Minigame
+  miniGame:null,
+  // UI
+  scroll:0,hover:null,achImages:{},
 };
 
-// ----- FOOD DEFINITIONS -----
-const FOODS = [
-  { id: 'egg',     name: 'Fried Egg',   emoji: '🍳', color: '#f5d442', cookTime: 2.0, station: 'grill' },
-  { id: 'bacon',   name: 'Bacon',       emoji: '🥓', color: '#c0422a', cookTime: 2.5, station: 'grill' },
-  { id: 'burger',  name: 'Burger',      emoji: '🍔', color: '#8B4513', cookTime: 3.0, station: 'grill' },
-  { id: 'fries',   name: 'Fries',       emoji: '🍟', color: '#f5c542', cookTime: 3.5, station: 'fryer' },
-  { id: 'chicken', name: 'Chicken',     emoji: '🍗', color: '#d4a050', cookTime: 4.0, station: 'fryer' },
-  { id: 'fish',    name: 'Fish',        emoji: '🐟', color: '#5090c0', cookTime: 3.5, station: 'fryer' },
-  { id: 'salad',   name: 'Salad',       emoji: '🥗', color: '#44aa44', cookTime: 1.5, station: 'chop' },
-  { id: 'tomato',  name: 'Tomato Soup', emoji: '🍅', color: '#cc3322', cookTime: 3.0, station: 'pot' },
-  { id: 'steak',   name: 'Steak',       emoji: '🥩', color: '#993322', cookTime: 5.0, station: 'grill' },
-  { id: 'pasta',   name: 'Pasta',       emoji: '🍝', color: '#dda040', cookTime: 4.0, station: 'pot' },
-  { id: 'pizza',   name: 'Pizza',       emoji: '🍕', color: '#dd8822', cookTime: 5.0, station: 'oven' },
-  { id: 'cake',    name: 'Cake',        emoji: '🍰', color: '#e8a0b0', cookTime: 6.0, station: 'oven' },
-];
+// ── HELPERS ──
+function fmt(n){return n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(1)+'K':Math.floor(n).toString()}
+function lerp(a,b,t){return a+(b-a)*t}
+function rr(x,y,w,h,r,f,s){cx.beginPath();cx.moveTo(x+r,y);cx.arcTo(x+w,y,x+w,y+h,r);cx.arcTo(x+w,y+h,x,y+h,r);cx.arcTo(x,y+h,x,y,r);cx.arcTo(x,y,x+w,y,r);cx.closePath();if(f)cx.fill();if(s)cx.stroke()}
+function addFloat(x,y,t,c,d){G.floats.push({x,y,text:t,color:c,life:d||1.5,max:d||1.5})}
+function addParts(x,y,c,n){for(let i=0;i<(n||6);i++)G.particles.push({x,y,vx:(Math.random()-.5)*5,vy:-Math.random()*4-1,life:1,color:c,sz:2+Math.random()*3})}
 
-// ----- STATIONS -----
-const STATIONS = [
-  { id: 'grill', name: 'Grill',   emoji: '🔥', x: 80,  y: 280, w: 120, h: 90 },
-  { id: 'fryer', name: 'Fryer',   emoji: '🫕', x: 230, y: 280, w: 120, h: 90 },
-  { id: 'chop',  name: 'Chop',    emoji: '🔪', x: 380, y: 280, w: 120, h: 90 },
-  { id: 'pot',   name: 'Pot',     emoji: '🍲', x: 530, y: 280, w: 120, h: 90 },
-  { id: 'oven',  name: 'Oven',    emoji: '♨️', x: 680, y: 280, w: 120, h: 90 },
-];
+// ── SAVE/LOAD ──
+function save(){try{localStorage.setItem('orderup_v3',JSON.stringify(G.save))}catch(e){}}
+function load(){try{const r=localStorage.getItem('orderup_v3');if(r)G.save=Object.assign(G.save,JSON.parse(r))}catch(e){}}
 
-// ----- CUSTOMER SEATS -----
-const SEATS = [
-  { x: 100, y: 140 },
-  { x: 250, y: 140 },
-  { x: 400, y: 140 },
-  { x: 550, y: 140 },
-  { x: 700, y: 140 },
-];
-
-// ----- CUSTOMER TYPES -----
-const CUSTOMER_TYPES = [
-  { emoji: '👨', patience: 1.0, tip: 1.0 },
-  { emoji: '👩', patience: 1.0, tip: 1.0 },
-  { emoji: '👴', patience: 1.3, tip: 1.2 },
-  { emoji: '👵', patience: 1.3, tip: 1.2 },
-  { emoji: '🧑', patience: 0.9, tip: 1.0 },
-  { emoji: '👨‍🍳', patience: 0.7, tip: 1.5 },
-  { emoji: '🤵', patience: 0.6, tip: 2.0 },
-  { emoji: '👸', patience: 0.5, tip: 2.5 },
-];
-
-// ----- LEVELS -----
-function makeLevel(num) {
-  const foodPool = FOODS.slice(0, Math.min(3 + num, FOODS.length));
-  const customerCount = Math.min(5 + num * 2, 20);
-  const maxItems = Math.min(1 + Math.floor(num / 2), 3);
-  const basePatience = Math.max(25 - num * 1.5, 10);
-  const spawnInterval = Math.max(6 - num * 0.3, 2.5);
-  return { num, foodPool, customerCount, maxItems, basePatience, spawnInterval };
+// ── RESTAURANT HELPERS ──
+function curRest(){return RESTAURANTS[G.save.currentRestaurant]}
+function getStationsForRestaurant(rest){
+  const ids=new Set();
+  rest.dishes.forEach(d=>ids.add(d.station));
+  return STATION_DEFS.filter(s=>ids.has(s.id));
 }
 
-// ----- GAME STATE -----
-let game = {
-  screen: 'title',  // title, playing, levelComplete, gameOver, achievements
-  level: null,
-  levelNum: 1,
-  coins: 0,
-  totalCoins: 0,
-  score: 0,
-  stars: 0,
-  customersServed: 0,
-  customersLost: 0,
-  customers: [],       // active customers at seats
-  stations: {},        // station cooking state
-  plate: [],           // assembled items on serving plate
-  spawnTimer: 0,
-  spawned: 0,
-  totalCustomersThisLevel: 0,
-  combo: 0,
-  comboTimer: 0,
-  achievements: [],
-  totalDishesServed: 0,
-  totalClicks: 0,
-  perfectOrders: 0,
-  highestCombo: 0,
-  floats: [],          // floating text animations
-  particles: [],
-  time: 0,
-  shakeTimer: 0,
-  selectedStation: null,
-};
-
-// Init stations
-function initStations() {
-  game.stations = {};
-  STATIONS.forEach(s => {
-    game.stations[s.id] = { cooking: null, food: null, progress: 0, done: false, burned: false };
-  });
+// ── START A DAY ──
+function startDay(){
+  const rest=curRest();
+  G.screen='cooking';
+  G.customers=[];G.orders=[];G.plate=null;G.spiceTarget=null;G.selectedDish=null;
+  G.score=0;G.tipsEarned=0;G.customersServed=0;G.customersLost=0;
+  G.combo=0;G.comboTimer=0;G.floats=[];G.particles=[];G.shakeT=0;G.time=0;
+  G.dayTimer=G.maxDayTime;G.miniGame=null;
+  const stns=getStationsForRestaurant(rest);
+  G.stations={};
+  stns.forEach(s=>{G.stations[s.id]={cooking:null,progress:0,done:false,burned:false,taps:0,needsTap:false}});
+  G.day={rest,stns,spawnTimer:2,spawned:0,maxCustomers:8+G.save.currentRestaurant*3,seatCount:4};
+  G.save.totalDays++;
 }
-initStations();
 
-// ----- ACHIEVEMENTS -----
-const ACH_DEFS = [
-  { id: 'startingyourempire',  name: 'Starting Your Empire',  desc: 'Complete level 1' },
-  { id: 'onaroll',             name: 'On a Roll',             desc: 'Get a 3x combo' },
-  { id: 'dozen',               name: 'Dozen',                 desc: 'Serve 12 dishes total' },
-  { id: 'fastfood',            name: 'Fast Food',             desc: 'Serve with 80%+ patience' },
-  { id: 'knifeskills',         name: 'Knife Skills',          desc: 'Use the chop station 10 times' },
-  { id: 'spicemaster',         name: 'Spice Master',          desc: 'Serve all food types' },
-  { id: 'spicemerchant',       name: 'Spice Merchant',        desc: 'Earn 500 coins' },
-  { id: 'hiredhelp',           name: 'Hired Help',            desc: 'Reach level 3' },
-  { id: 'chefdecuisine',       name: 'Chef de Cuisine',       desc: 'Reach level 5' },
-  { id: 'piggybank',           name: 'Piggy Bank',            desc: 'Earn 1000 coins' },
-  { id: 'moneybags',           name: 'Money Bags',            desc: 'Earn 5000 coins' },
-  { id: 'golden',              name: 'Golden',                desc: 'Get 3 stars on a level' },
-  { id: 'patronpleaser',       name: 'Patron Pleaser',        desc: 'Serve 50 dishes' },
-  { id: 'impressiveindeed',    name: 'Impressive Indeed',     desc: 'Get a 5x combo' },
-  { id: 'makingthegrade',      name: 'Making the Grade',      desc: 'Complete 3 levels' },
-  { id: 'fullmenu',            name: 'Full Menu',             desc: 'Unlock all food types' },
-  { id: 'greasejockey',        name: 'Grease Jockey',         desc: 'Use the fryer 20 times' },
-  { id: 'firefighter',         name: 'Firefighter',           desc: 'Burn 5 dishes (oops!)' },
-  { id: 'pepperchop',          name: 'Pepper Chop',           desc: 'Serve 3 orders in 15 sec' },
-  { id: 'perfect4',            name: 'Perfect 4',             desc: '4 perfect orders in a row' },
-  { id: 'pestcontrol',         name: 'Pest Control',          desc: 'Lose 0 customers in a level' },
-  { id: 'headlines',           name: 'Headlines',             desc: 'Score 200 in one level' },
-  { id: 'spotless',            name: 'Spotless',              desc: 'Complete level with no burns' },
-  { id: 'squeakyclean',        name: 'Squeaky Clean',         desc: '3 levels with no burns' },
-  { id: 'specialtreatment',    name: 'Special Treatment',     desc: 'Serve the VIP (👸)' },
-  { id: 'steakula',            name: 'Steak-ula',             desc: 'Cook 10 steaks' },
-  { id: 'dusty',               name: 'Dusty',                 desc: 'Play 10 levels' },
-  { id: 'monkeybusiness',      name: 'Monkey Business',       desc: 'Tap 50 times in one level' },
-  { id: 'ned',                 name: 'Ned',                   desc: 'Serve a 3-item order' },
-  { id: 'exceptionalcuisine',  name: 'Exceptional Cuisine',   desc: 'Reach level 8' },
-];
-
-// Achievement tracking
-let achTrack = { chopUses: 0, fryerUses: 0, burns: 0, steaks: 0, servedFoods: new Set(), cleanLevels: 0, perfectStreak: 0, recentServes: [] };
-
-function checkAch(id) {
-  if (!game.achievements.includes(id)) {
-    game.achievements.push(id);
-    addFloat(400, 60, '🏆 ' + ACH_DEFS.find(a=>a.id===id).name, '#f5c542', 2.5);
+// ── SPAWN CUSTOMER ──
+function spawnCust(){
+  if(G.customers.length>=G.day.seatCount)return;
+  if(G.day.spawned>=G.day.maxCustomers)return;
+  const rest=G.day.rest;
+  // Pick customer type
+  let type;
+  if(G.day.spawned===G.day.maxCustomers-1&&Math.random()<0.3){
+    type=CUST_TYPES.find(t=>t.isCritic);
+  }else{
+    const pool=CUST_TYPES.filter(t=>!t.isCritic&&!t.isInspector);
+    type=pool[Math.floor(Math.random()*pool.length)];
   }
-}
-
-// ----- SPAWN CUSTOMER -----
-function spawnCustomer() {
-  const level = game.level;
+  // Pick order (1-3 dishes)
+  const numDishes=Math.min(1+Math.floor(Math.random()*(1+G.save.currentRestaurant*0.5)),3);
+  const order=[];
+  for(let i=0;i<numDishes;i++){
+    order.push(rest.dishes[Math.floor(Math.random()*rest.dishes.length)]);
+  }
   // Find empty seat
-  const emptySeats = SEATS.map((s,i) => i).filter(i => !game.customers.find(c => c.seat === i));
-  if (emptySeats.length === 0) return;
+  const taken=G.customers.map(c=>c.seat);
+  let seat=-1;
+  for(let i=0;i<G.day.seatCount;i++){if(!taken.includes(i)){seat=i;break;}}
+  if(seat<0)return;
 
-  const seat = emptySeats[Math.floor(Math.random() * emptySeats.length)];
-  const type = CUSTOMER_TYPES[Math.floor(Math.random() * CUSTOMER_TYPES.length)];
-  const numItems = Math.min(1 + Math.floor(Math.random() * level.maxItems), level.maxItems);
-
-  const order = [];
-  for (let i = 0; i < numItems; i++) {
-    const food = level.foodPool[Math.floor(Math.random() * level.foodPool.length)];
-    order.push(food);
-  }
-
-  game.customers.push({
-    seat,
-    type,
-    order,
-    served: [],
-    patience: level.basePatience * type.patience,
-    maxPatience: level.basePatience * type.patience,
-    state: 'waiting', // waiting, served, leaving
-    enterAnim: 1.0,
-    serveAnim: 0,
+  const baseP=25+G.save.upgrades.patience*5;
+  G.customers.push({
+    type,order,served:[],seat,
+    patience:baseP*type.patience,maxPatience:baseP*type.patience,
+    state:'ordering',stateTimer:1.5,enterAnim:1,
+    spiced:false,prefSpiceMet:false,
   });
-  game.spawned++;
+  G.day.spawned++;
 }
 
-// ----- COOKING LOGIC -----
-function startCooking(stationId, food) {
-  const st = game.stations[stationId];
-  if (st.cooking) return false;
-  st.cooking = true;
-  st.food = food;
-  st.progress = 0;
-  st.done = false;
-  st.burned = false;
-
-  // Track
-  if (stationId === 'chop') achTrack.chopUses++;
-  if (stationId === 'fryer') achTrack.fryerUses++;
-  if (food.id === 'steak') achTrack.steaks++;
-  if (achTrack.chopUses >= 10) checkAch('knifeskills');
-  if (achTrack.fryerUses >= 20) checkAch('greasejockey');
-  if (achTrack.steaks >= 10) checkAch('steakula');
-
+// ── COOKING ──
+function startCook(stationId,dish){
+  const st=G.stations[stationId];
+  if(!st||st.cooking)return false;
+  const speedMod=1-G.save.upgrades.cookSpeed*0.1;
+  st.cooking=dish;st.progress=0;st.done=false;st.burned=false;st.taps=0;st.needsTap=false;
+  st.cookTime=dish.time*speedMod;
+  st.nextTap=0.3+Math.random()*0.3; // First tap at 30-60%
   return true;
 }
 
-function collectFromStation(stationId) {
-  const st = game.stations[stationId];
-  if (!st.done || st.burned) {
-    if (st.burned) {
-      // Clear burned food
-      st.cooking = null; st.food = null; st.progress = 0; st.done = false; st.burned = false;
-      achTrack.burns++;
-      if (achTrack.burns >= 5) checkAch('firefighter');
-      addFloat(STATIONS.find(s=>s.id===stationId).x + 60, 260, '🔥 Burned!', C.textRed, 1.5);
-      game.shakeTimer = 0.3;
-    }
-    return null;
+function tapStation(stationId){
+  const st=G.stations[stationId];
+  if(!st||!st.cooking)return;
+  if(st.done&&!st.burned){
+    // Collect to plate
+    G.plate={dish:st.cooking,quality:1+st.taps*0.1,spice:null};
+    st.cooking=null;st.progress=0;st.done=false;st.taps=0;
+    return;
   }
-  const food = st.food;
-  st.cooking = null; st.food = null; st.progress = 0; st.done = false;
-  return food;
+  if(st.burned){
+    st.cooking=null;st.progress=0;st.done=false;st.burned=false;st.taps=0;
+    G.shakeT=0.2;
+    return;
+  }
+  // Tap for bonus (like flipping/stirring)
+  if(st.needsTap){
+    st.taps++;st.needsTap=false;
+    const sdef=STATION_DEFS.find(s=>s.id===stationId);
+    addFloat(400,250,sdef.action+'!','#4f4',0.8);
+  }
 }
 
-// ----- PLATE / SERVING -----
-function addToPlate(food) {
-  if (game.plate.length >= 3) return false;
-  game.plate.push(food);
+function serveTo(custIdx){
+  if(!G.plate)return false;
+  const c=G.customers[custIdx];
+  if(!c||c.state!=='waiting')return false;
+  // Check if plate dish matches any in remaining order
+  const idx=c.order.findIndex((d,i)=>!c.served[i]&&d.name===G.plate.dish.name);
+  if(idx<0)return false;
+  c.served[idx]=true;
+  const pRatio=c.patience/c.maxPatience;
+  let tip=Math.floor(G.plate.dish.value*G.plate.quality*(0.5+pRatio*0.5)*c.type.tipMult);
+  if(G.plate.spice){
+    tip=Math.floor(tip*(1+G.plate.spice.bonus));
+    if(c.type.prefSpice===G.plate.spice.id){tip=Math.floor(tip*1.3);c.prefSpiceMet=true;}
+  }
+  tip=Math.floor(tip*(1+G.save.upgrades.tipBonus*0.1));
+  // Combo
+  G.combo++;G.comboTimer=4;
+  if(G.combo>1)tip=Math.floor(tip*(1+G.combo*0.15));
+
+  G.score+=tip;G.tipsEarned+=tip;
+  const seatX=120+c.seat*170;
+  addFloat(seatX,100,'+'+tip+' coins','#fc2',1.5);
+  if(G.combo>1)addFloat(seatX,120,G.combo+'x Combo!','#f80',1);
+  addParts(seatX,130,'#fc2',8);
+
+  G.plate=null;
+
+  // Check if fully served
+  if(c.served.every(Boolean)){
+    c.state='happy';c.stateTimer=1.2;
+    G.customersServed++;G.save.dishesServed++;
+    if(pRatio>0.7)addFloat(seatX,80,'😊 Great!','#4f4',1);
+  }
   return true;
 }
 
-function clearPlate() {
-  game.plate = [];
+function applySpice(spice){
+  if(!G.plate)return;
+  if(G.save.spicesOwned[spice.id]<=0)return;
+  G.plate.spice=spice;
+  G.save.spicesOwned[spice.id]--;
+  G.spiceTarget=null;
+  addFloat(400,300,spice.emoji+' Seasoned!',spice.color,1);
 }
 
-function tryServeCustomer(custIndex) {
-  const cust = game.customers[custIndex];
-  if (!cust || cust.state !== 'waiting' || game.plate.length === 0) return false;
+// ── UPDATE ──
+function update(dt){
+  G.time+=dt;
+  G.shakeT=Math.max(0,G.shakeT-dt);
+  // Floats
+  for(let i=G.floats.length-1;i>=0;i--){G.floats[i].life-=dt;G.floats[i].y-=dt*35;if(G.floats[i].life<=0)G.floats.splice(i,1);}
+  for(let i=G.particles.length-1;i>=0;i--){const p=G.particles[i];p.x+=p.vx;p.y+=p.vy;p.vy+=dt*6;p.life-=dt*1.5;if(p.life<=0)G.particles.splice(i,1);}
+  if(G.comboTimer>0){G.comboTimer-=dt;if(G.comboTimer<=0)G.combo=0;}
 
-  // Check if plate matches order
-  const orderIds = cust.order.map(f => f.id).sort();
-  const plateIds = game.plate.map(f => f.id).sort();
+  if(G.screen!=='cooking')return;
 
-  if (orderIds.length !== plateIds.length) return false;
-  for (let i = 0; i < orderIds.length; i++) {
-    if (orderIds[i] !== plateIds[i]) return false;
+  // Day timer
+  G.dayTimer-=dt;
+  if(G.dayTimer<=0){endDay();return;}
+
+  // Spawn
+  G.day.spawnTimer-=dt;
+  if(G.day.spawnTimer<=0&&G.day.spawned<G.day.maxCustomers){
+    spawnCust();
+    G.day.spawnTimer=Math.max(3-G.save.currentRestaurant*0.3,1.5)+Math.random()*2;
   }
 
-  // Serve!
-  const patienceRatio = cust.patience / cust.maxPatience;
-  const tipMult = cust.type.tip;
-  const comboMult = 1 + game.combo * 0.5;
-
-  let baseScore = 10 * cust.order.length;
-  let bonus = Math.floor(patienceRatio * 20);
-  let total = Math.floor((baseScore + bonus) * tipMult * comboMult);
-
-  game.score += total;
-  game.coins += total;
-  game.totalCoins += total;
-  game.customersServed++;
-  game.totalDishesServed++;
-  game.combo++;
-  game.comboTimer = 5;
-  game.highestCombo = Math.max(game.highestCombo, game.combo);
-
-  // Track serves for speed achievement
-  achTrack.recentServes.push(game.time);
-  achTrack.recentServes = achTrack.recentServes.filter(t => game.time - t < 15);
-
-  // Track foods
-  cust.order.forEach(f => achTrack.servedFoods.add(f.id));
-
-  // Check achievements
-  if (patienceRatio > 0.8) { checkAch('fastfood'); achTrack.perfectStreak++; }
-  else achTrack.perfectStreak = 0;
-  if (achTrack.perfectStreak >= 4) checkAch('perfect4');
-  if (game.combo >= 3) checkAch('onaroll');
-  if (game.combo >= 5) checkAch('impressiveindeed');
-  if (game.totalDishesServed >= 12) checkAch('dozen');
-  if (game.totalDishesServed >= 50) checkAch('patronpleaser');
-  if (game.totalCoins >= 500) checkAch('spicemerchant');
-  if (game.totalCoins >= 1000) checkAch('piggybank');
-  if (game.totalCoins >= 5000) checkAch('moneybags');
-  if (achTrack.servedFoods.size >= FOODS.length) checkAch('spicemaster');
-  if (achTrack.recentServes.length >= 3) checkAch('pepperchop');
-  if (cust.order.length >= 3) checkAch('ned');
-  if (cust.type.emoji === '👸') checkAch('specialtreatment');
-
-  cust.state = 'served';
-  cust.serveAnim = 1.0;
-
-  const seatPos = SEATS[cust.seat];
-  addFloat(seatPos.x, seatPos.y - 30, '+' + total, C.textGold, 1.5);
-  if (game.combo > 1) addFloat(seatPos.x, seatPos.y - 10, game.combo + 'x Combo!', '#ff8800', 1.2);
-
-  // Particles
-  for (let i = 0; i < 8; i++) {
-    game.particles.push({
-      x: seatPos.x, y: seatPos.y,
-      vx: (Math.random() - 0.5) * 4,
-      vy: -Math.random() * 3 - 1,
-      life: 1, color: C.textGold, size: 3 + Math.random() * 3
-    });
-  }
-
-  clearPlate();
-  return true;
-}
-
-// ----- FLOATING TEXT -----
-function addFloat(x, y, text, color, duration) {
-  game.floats.push({ x, y, text, color, life: duration || 1.5, maxLife: duration || 1.5 });
-}
-
-// ----- START LEVEL -----
-function startLevel(num) {
-  game.screen = 'playing';
-  game.level = makeLevel(num);
-  game.levelNum = num;
-  game.score = 0;
-  game.customersServed = 0;
-  game.customersLost = 0;
-  game.customers = [];
-  game.plate = [];
-  game.spawnTimer = 1;
-  game.spawned = 0;
-  game.totalCustomersThisLevel = game.level.customerCount;
-  game.combo = 0;
-  game.comboTimer = 0;
-  game.floats = [];
-  game.particles = [];
-  game.time = 0;
-  game.shakeTimer = 0;
-  game.selectedStation = null;
-  game.totalClicks = 0;
-  achTrack.burns = 0;
-  initStations();
-
-  if (num >= 3) checkAch('hiredhelp');
-  if (num >= 5) checkAch('chefdecuisine');
-  if (num >= 8) checkAch('exceptionalcuisine');
-  if (num >= 10) checkAch('dusty');
-  if (game.levelNum > 1) checkAch('makingthegrade');
-}
-
-// ----- UPDATE -----
-function update(dt) {
-  if (game.screen !== 'playing') return;
-
-  game.time += dt;
-  game.shakeTimer = Math.max(0, game.shakeTimer - dt);
-
-  // Combo timer
-  if (game.comboTimer > 0) {
-    game.comboTimer -= dt;
-    if (game.comboTimer <= 0) game.combo = 0;
-  }
-
-  // Spawn customers
-  game.spawnTimer -= dt;
-  if (game.spawnTimer <= 0 && game.spawned < game.totalCustomersThisLevel) {
-    spawnCustomer();
-    game.spawnTimer = game.level.spawnInterval;
-  }
-
-  // Update customers
-  for (let i = game.customers.length - 1; i >= 0; i--) {
-    const c = game.customers[i];
-    c.enterAnim = Math.max(0, c.enterAnim - dt * 3);
-
-    if (c.state === 'waiting') {
-      c.patience -= dt;
-      if (c.patience <= 0) {
-        c.state = 'leaving';
-        game.customersLost++;
-        game.combo = 0;
-        achTrack.perfectStreak = 0;
-        addFloat(SEATS[c.seat].x, SEATS[c.seat].y - 20, '😠 Left!', C.textRed, 1.5);
-        game.shakeTimer = 0.2;
+  // Customers
+  for(let i=G.customers.length-1;i>=0;i--){
+    const c=G.customers[i];
+    c.enterAnim=Math.max(0,c.enterAnim-dt*3);
+    if(c.state==='ordering'){
+      c.stateTimer-=dt;
+      if(c.stateTimer<=0)c.state='waiting';
+    }
+    if(c.state==='waiting'){
+      c.patience-=dt;
+      if(c.patience<=0){
+        c.state='angry';c.stateTimer=1;
+        G.customersLost++;G.combo=0;
+        const sx=120+c.seat*170;
+        addFloat(sx,100,'😠 Left!','#f44',1.5);
+        G.shakeT=0.25;
       }
     }
-
-    if (c.state === 'served') {
-      c.serveAnim -= dt * 2;
-      if (c.serveAnim <= 0) {
-        game.customers.splice(i, 1);
-        continue;
-      }
-    }
-
-    if (c.state === 'leaving') {
-      c.enterAnim += dt * 3;
-      if (c.enterAnim >= 1) {
-        game.customers.splice(i, 1);
-      }
+    if(c.state==='happy'||c.state==='angry'){
+      c.stateTimer-=dt;
+      if(c.stateTimer<=0)G.customers.splice(i,1);
     }
   }
 
-  // Update stations (cooking progress)
-  STATIONS.forEach(s => {
-    const st = game.stations[s.id];
-    if (st.cooking && !st.done) {
-      st.progress += dt / st.food.cookTime;
-      if (st.progress >= 1.0) {
-        st.done = true;
-        st.progress = 1.0;
-        addFloat(s.x + 60, s.y - 10, '✅ Ready!', C.textGreen, 1);
-      }
+  // Stations
+  Object.keys(G.stations).forEach(sid=>{
+    const st=G.stations[sid];
+    if(!st.cooking||st.done)return;
+    const spd=1/st.cookTime;
+    st.progress+=dt*spd;
+    // Tap prompt
+    if(!st.needsTap&&st.progress>=st.nextTap&&st.progress<1){
+      st.needsTap=true;
+      st.nextTap=st.progress+0.25+Math.random()*0.2;
     }
-    // Burn if left too long after done
-    if (st.done && !st.burned) {
-      st.progress += dt * 0.15;
-      if (st.progress >= 1.5) {
-        st.burned = true;
-        addFloat(s.x + 60, s.y - 10, '🔥 Burning!', C.textRed, 1);
-        game.shakeTimer = 0.15;
-      }
+    if(st.progress>=1&&!st.done){
+      st.done=true;st.progress=1;
+    }
+    // Burn
+    if(st.done&&!st.burned){
+      st.progress+=dt*0.12;
+      if(st.progress>=1.6){st.burned=true;G.shakeT=0.15;}
     }
   });
 
-  // Update floats
-  for (let i = game.floats.length - 1; i >= 0; i--) {
-    game.floats[i].life -= dt;
-    game.floats[i].y -= dt * 30;
-    if (game.floats[i].life <= 0) game.floats.splice(i, 1);
+  // Auto-helpers
+  if(G.save.helpers.fry_guy&&G.stations.fryer){
+    const st=G.stations.fryer;
+    if(st.cooking&&st.needsTap){st.taps++;st.needsTap=false;}
+  }
+  if(G.save.helpers.spice_guy&&G.plate&&!G.plate.spice){
+    // Auto-spice with pepper if available
+    const avail=SPICES.find(s=>G.save.spicesOwned[s.id]>0);
+    if(avail){G.plate.spice=avail;G.save.spicesOwned[avail.id]--;}
   }
 
-  // Update particles
-  for (let i = game.particles.length - 1; i >= 0; i--) {
-    const p = game.particles[i];
-    p.x += p.vx;
-    p.y += p.vy;
-    p.vy += dt * 5;
-    p.life -= dt * 1.5;
-    if (p.life <= 0) game.particles.splice(i, 1);
-  }
-
-  // Check level complete
-  if (game.spawned >= game.totalCustomersThisLevel && game.customers.length === 0) {
-    endLevel();
+  // Check if day should end
+  if(G.day.spawned>=G.day.maxCustomers&&G.customers.length===0){
+    endDay();
   }
 }
 
-function endLevel() {
+function endDay(){
   // Calculate stars
-  const serveRate = game.customersServed / game.totalCustomersThisLevel;
-  if (serveRate >= 0.9) game.stars = 3;
-  else if (serveRate >= 0.7) game.stars = 2;
-  else if (serveRate >= 0.5) game.stars = 1;
-  else game.stars = 0;
+  const rate=G.day.maxCustomers>0?G.customersServed/G.day.maxCustomers:0;
+  let stars=0;
+  if(rate>=0.9)stars=3;else if(rate>=0.7)stars=2;else if(rate>=0.4)stars=1;
 
-  if (game.stars >= 3) checkAch('golden');
-  if (game.score >= 200) checkAch('headlines');
-  if (game.customersLost === 0) checkAch('pestcontrol');
-  if (achTrack.burns === 0) { checkAch('spotless'); achTrack.cleanLevels++; }
-  if (achTrack.cleanLevels >= 3) checkAch('squeakyclean');
-  if (game.totalClicks >= 50) checkAch('monkeybusiness');
-  if (game.levelNum === 1 && game.stars > 0) checkAch('startingyourempire');
+  G.save.coins+=G.tipsEarned;G.save.totalCoins+=G.tipsEarned;
+  const key=G.save.currentRestaurant+'';
+  G.save.stars[key]=Math.max(G.save.stars[key]||0,stars);
 
-  if (game.level.foodPool.length >= FOODS.length) checkAch('fullmenu');
-
-  game.screen = game.stars > 0 ? 'levelComplete' : 'gameOver';
-  saveGame();
+  G.day.resultStars=stars;G.day.resultTips=G.tipsEarned;
+  G.screen='dayEnd';
+  checkAchievements();
+  save();
 }
 
-// ----- DRAWING -----
-function draw() {
-  ctx.save();
+// ── ACHIEVEMENTS ──
+const ACH=[
+  {id:'startingyourempire',name:'Starting Your Empire',desc:'Complete your first day',c:()=>G.save.totalDays>=1},
+  {id:'onaroll',name:'On a Roll',desc:'Get a 3x combo',c:()=>G.combo>=3||G.save.achievements.includes('onaroll')},
+  {id:'dozen',name:'Dozen',desc:'Serve 12 dishes',c:()=>G.save.dishesServed>=12},
+  {id:'fastfood',name:'Fast Food',desc:'Complete Diner with 3 stars',c:()=>(G.save.stars['0']||0)>=3},
+  {id:'knifeskills',name:'Knife Skills',desc:'Chop 10 dishes',c:()=>G.save.dishesServed>=10},
+  {id:'spicemaster',name:'Spice Master',desc:'Use every spice type',c:()=>false},
+  {id:'spicemerchant',name:'Spice Merchant',desc:'Earn 500 coins',c:()=>G.save.totalCoins>=500},
+  {id:'hiredhelp',name:'Hired Help',desc:'Hire the Fry Guy',c:()=>G.save.helpers.fry_guy},
+  {id:'chefdecuisine',name:'Chef de Cuisine',desc:'Unlock 3 restaurants',c:()=>G.save.unlockedRestaurants.length>=3},
+  {id:'piggybank',name:'Piggy Bank',desc:'Earn 1,000 coins',c:()=>G.save.totalCoins>=1000},
+  {id:'moneybags',name:'Money Bags',desc:'Earn 5,000 coins',c:()=>G.save.totalCoins>=5000},
+  {id:'golden',name:'Golden',desc:'Get 3 stars on 3 restaurants',c:()=>Object.values(G.save.stars).filter(s=>s>=3).length>=3},
+  {id:'patronpleaser',name:'Patron Pleaser',desc:'Serve 50 dishes total',c:()=>G.save.dishesServed>=50},
+  {id:'impressiveindeed',name:'Impressive Indeed',desc:'Get a 5x combo',c:()=>false},
+  {id:'makingthegrade',name:'Making the Grade',desc:'Get stars in 3 restaurants',c:()=>Object.keys(G.save.stars).length>=3},
+  {id:'fullmenu',name:'Full Menu',desc:'Unlock all restaurants',c:()=>G.save.unlockedRestaurants.length>=5},
+  {id:'greasejockey',name:'Grease Jockey',desc:'Serve 20 fried dishes',c:()=>G.save.dishesServed>=20},
+  {id:'firefighter',name:'Firefighter',desc:'Burn 5 dishes',c:()=>false},
+  {id:'pepperchop',name:'Pepper Chop',desc:'Serve 3 dishes in 15 seconds',c:()=>false},
+  {id:'perfect4',name:'Perfect 4',desc:'Serve 4 customers in a row',c:()=>false},
+  {id:'pestcontrol',name:'Pest Control',desc:'Lose 0 customers in a day',c:()=>G.customersLost===0&&G.customersServed>0},
+  {id:'headlines',name:'Headlines',desc:'Earn 200 coins in one day',c:()=>G.tipsEarned>=200},
+  {id:'spotless',name:'Spotless',desc:'No burned dishes in a day',c:()=>false},
+  {id:'squeakyclean',name:'Squeaky Clean',desc:'3 perfect days',c:()=>false},
+  {id:'specialtreatment',name:'Special Treatment',desc:'Serve the Food Critic',c:()=>false},
+  {id:'steakula',name:'Steak-ula',desc:'Serve Filet Mignon',c:()=>false},
+  {id:'dusty',name:'Dusty',desc:'Play 10 days',c:()=>G.save.totalDays>=10},
+  {id:'monkeybusiness',name:'Monkey Business',desc:'Tap 50 times in a day',c:()=>false},
+  {id:'ned',name:'Ned',desc:'Serve a 3-item order',c:()=>false},
+  {id:'exceptionalcuisine',name:'Exceptional Cuisine',desc:'Unlock World Class restaurant',c:()=>G.save.unlockedRestaurants.includes(4)},
+];
 
-  // Screen shake
-  if (game.shakeTimer > 0) {
-    const shake = game.shakeTimer * 8;
-    ctx.translate(Math.random() * shake - shake/2, Math.random() * shake - shake/2);
-  }
-
-  if (game.screen === 'title') drawTitle();
-  else if (game.screen === 'playing') drawGame();
-  else if (game.screen === 'levelComplete') drawLevelComplete();
-  else if (game.screen === 'gameOver') drawGameOver();
-  else if (game.screen === 'achievements') drawAchievements();
-
-  ctx.restore();
+function checkAchievements(){
+  ACH.forEach(a=>{
+    if(!G.save.achievements.includes(a.id)&&a.c()){
+      G.save.achievements.push(a.id);
+      addFloat(400,60,'🏆 '+a.name,'#fc2',2.5);
+    }
+  });
 }
 
-function drawTitle() {
-  // Background
-  drawKitchenBg();
+// ── DRAWING ──
+function draw(){
+  cx.save();
+  if(G.shakeT>0){const s=G.shakeT*10;cx.translate(Math.random()*s-s/2,Math.random()*s-s/2);}
 
-  // Overlay
-  ctx.fillStyle = 'rgba(10,5,2,.7)';
-  ctx.fillRect(0, 0, 800, 600);
+  if(G.screen==='title')drawTitle();
+  else if(G.screen==='worldmap')drawWorldMap();
+  else if(G.screen==='restaurant')drawRestaurantMenu();
+  else if(G.screen==='cooking')drawCooking();
+  else if(G.screen==='dayEnd')drawDayEnd();
+  else if(G.screen==='spiceRack')drawSpiceRack();
+  else if(G.screen==='shop')drawShop();
+  else if(G.screen==='achievements')drawAchScreen();
+
+  // Floats & particles (always)
+  G.floats.forEach(f=>{cx.globalAlpha=f.life/f.max;cx.textAlign='center';cx.font='bold 16px Georgia';cx.fillStyle=f.color;cx.fillText(f.text,f.x,f.y)});
+  G.particles.forEach(p=>{cx.globalAlpha=p.life;cx.fillStyle=p.color;cx.beginPath();cx.arc(p.x,p.y,p.sz*p.life,0,Math.PI*2);cx.fill()});
+  cx.globalAlpha=1;
+  cx.restore();
+}
+
+// ── Title ──
+function drawTitle(){
+  // Warm kitchen bg
+  const bg=cx.createLinearGradient(0,0,0,600);
+  bg.addColorStop(0,'#2a1608');bg.addColorStop(1,'#0e0906');
+  cx.fillStyle=bg;cx.fillRect(0,0,800,600);
+
+  // Decorative emojis floating
+  cx.font='36px sans-serif';
+  const items=['🍳','🍔','🍕','🌮','🍣','🥩','🍝','🦞','🍰','🥗'];
+  items.forEach((e,i)=>{
+    const a=G.time*0.4+i*0.63;
+    cx.globalAlpha=0.3;
+    cx.fillText(e,80+i*70,300+Math.sin(a)*40);
+  });
+  cx.globalAlpha=1;
 
   // Title
-  ctx.textAlign = 'center';
-  ctx.fillStyle = C.textGold;
-  ctx.font = 'bold 52px sans-serif';
-  ctx.fillText('ORDER UP!', 400, 170);
-  ctx.font = 'bold 24px sans-serif';
-  ctx.fillStyle = '#e8590c';
-  ctx.fillText('Kitchen Chaos', 400, 210);
+  cx.textAlign='center';
+  cx.font='bold 56px Georgia';
+  cx.fillStyle='#d4570a';
+  cx.shadowColor='rgba(212,87,10,.5)';cx.shadowBlur=20;
+  cx.fillText('ORDER UP!',400,160);
+  cx.shadowBlur=0;
+  cx.font='italic 22px Georgia';cx.fillStyle='#e8a040';
+  cx.fillText('Kitchen Chaos',400,195);
 
-  // Decorative food emojis
-  ctx.font = '40px sans-serif';
-  const emojis = ['🍳','🍔','🍟','🍕','🥗','🍝','🥩','🍰'];
-  emojis.forEach((e, i) => {
-    const angle = (i / emojis.length) * Math.PI * 2 + game.time * 0.3;
-    const x = 400 + Math.cos(angle) * 120;
-    const y = 300 + Math.sin(angle) * 60;
-    ctx.globalAlpha = 0.7;
-    ctx.fillText(e, x, y);
-  });
-  ctx.globalAlpha = 1;
+  cx.font='14px Georgia';cx.fillStyle='#806040';
+  cx.fillText('Cook · Season · Serve · Build Your Empire',400,230);
 
-  // Play button
-  drawButton(300, 380, 200, 55, '▶  PLAY', '#e8590c', '#c2410c');
+  btn(270,340,260,55,'🍽️  START COOKING','#d4570a','#a03808');
+  btn(270,410,260,45,'🏆  Trophies ('+G.save.achievements.length+'/30)','#5a4020','#3a2a14');
+  btn(270,465,260,45,'🛒  Shop & Upgrades','#2a5a30','#1a3a1a');
 
-  // Achievements button
-  drawButton(300, 450, 200, 45, '🏆 Trophies (' + game.achievements.length + '/30)', '#5a4020', '#3d2a15');
-
-  // Level display
-  ctx.font = '16px sans-serif';
-  ctx.fillStyle = C.textDim;
-  ctx.fillText('Level ' + game.levelNum + '  |  Coins: ' + game.totalCoins, 400, 530);
-
-  // Credits
-  ctx.font = '12px sans-serif';
-  ctx.fillStyle = 'rgba(160,128,96,.5)';
-  ctx.fillText('Built from Order Up! assets', 400, 575);
+  cx.font='13px Georgia';cx.fillStyle='#605040';
+  cx.fillText('🪙 '+fmt(G.save.coins)+' coins',400,540);
+  cx.font='11px sans-serif';cx.fillStyle='rgba(120,100,80,.4)';
+  cx.fillText('Rebuilt from Order Up! APK assets',400,580);
 }
 
-function drawKitchenBg() {
-  // Wall
-  const wallGrad = ctx.createLinearGradient(0, 0, 0, 240);
-  wallGrad.addColorStop(0, '#5c3a28');
-  wallGrad.addColorStop(1, '#3d2418');
-  ctx.fillStyle = wallGrad;
-  ctx.fillRect(0, 0, 800, 240);
+// ── World Map ──
+function drawWorldMap(){
+  cx.fillStyle='#12100c';cx.fillRect(0,0,800,600);
 
-  // Wall tiles pattern
-  ctx.fillStyle = 'rgba(255,255,255,.03)';
-  for (let r = 0; r < 4; r++) {
-    for (let c = 0; c < 11; c++) {
-      const offset = r % 2 === 0 ? 0 : 37;
-      ctx.fillRect(c * 75 + offset, r * 60, 72, 57);
+  // Header
+  cx.fillStyle='rgba(30,20,14,.9)';cx.fillRect(0,0,800,50);
+  cx.textAlign='center';cx.font='bold 22px Georgia';cx.fillStyle='#e8a040';
+  cx.fillText('Select Restaurant',400,34);
+  cx.textAlign='left';cx.font='13px Georgia';cx.fillStyle='#fc2';
+  cx.fillText('🪙 '+fmt(G.save.coins),20,34);
+
+  // Back button
+  cx.textAlign='right';cx.font='14px Georgia';cx.fillStyle='#a08060';
+  cx.fillText('← Back',780,34);
+
+  RESTAURANTS.forEach((r,i)=>{
+    const x=60+i*145,y=80,w=130,h=420;
+    const unlocked=G.save.unlockedRestaurants.includes(i);
+    const stars=G.save.stars[i+''']||0;
+
+    cx.globalAlpha=unlocked?1:0.4;
+    cx.fillStyle=unlocked?'#1e1610':'#141210';
+    cx.strokeStyle=unlocked?r.color:'#333';cx.lineWidth=2;
+    rr(x,y,w,h,10,true,true);
+
+    // Restaurant icon (big emoji based on type)
+    cx.font='48px sans-serif';cx.textAlign='center';
+    const icons=['🍔','🌮','🍕','🍜','🦞'];
+    cx.fillText(icons[i],x+w/2,y+65);
+
+    // Name
+    cx.font='bold 13px Georgia';cx.fillStyle=unlocked?'#e8d0a0':'#666';
+    cx.fillText(r.name,x+w/2,y+95);
+
+    // Stars
+    cx.font='18px sans-serif';
+    for(let s=0;s<3;s++){
+      cx.fillStyle=s<stars?'#fc2':'#333';
+      cx.fillText('⭐',x+25+s*30,y+125);
     }
-  }
 
+    // Description
+    cx.font='10px Georgia';cx.fillStyle='#806040';
+    cx.fillText(r.desc,x+w/2,y+150);
+
+    // Dishes preview
+    cx.font='20px sans-serif';
+    r.dishes.slice(0,3).forEach((d,di)=>{
+      cx.fillText(d.emoji,x+20+di*35,y+185);
+    });
+    if(r.dishes.length>3){cx.font='11px Georgia';cx.fillStyle='#806040';cx.fillText('+' +(r.dishes.length-3)+' more',x+w/2,y+205);}
+
+    if(!unlocked){
+      cx.font='bold 14px Georgia';cx.fillStyle='#fc2';
+      cx.fillText('🔒 '+r.unlockCost,x+w/2,y+h-60);
+      if(G.save.coins>=r.unlockCost){
+        cx.fillStyle='#2a5a30';
+        rr(x+15,y+h-45,w-30,30,6,true,false);
+        cx.font='bold 11px Georgia';cx.fillStyle='#fff';
+        cx.fillText('UNLOCK',x+w/2,y+h-25);
+      }
+    }else{
+      cx.fillStyle=r.color;
+      rr(x+15,y+h-45,w-30,35,6,true,false);
+      cx.font='bold 12px Georgia';cx.fillStyle='#fff';
+      cx.fillText('PLAY',x+w/2,y+h-22);
+    }
+    cx.globalAlpha=1;
+  });
+}
+
+// ── Restaurant Menu (pre-day) ──
+function drawRestaurantMenu(){
+  const rest=curRest();
+  cx.fillStyle='#12100c';cx.fillRect(0,0,800,600);
+
+  cx.textAlign='center';cx.font='bold 28px Georgia';cx.fillStyle=rest.color;
+  cx.fillText(rest.name,400,45);
+  cx.font='italic 14px Georgia';cx.fillStyle='#a08060';
+  cx.fillText(rest.desc,400,68);
+
+  // Menu
+  cx.font='bold 14px Georgia';cx.fillStyle='#e8d0a0';
+  cx.fillText('— TODAY\'S MENU —',400,100);
+
+  rest.dishes.forEach((d,i)=>{
+    const x=100+(i%3)*220,y=120+Math.floor(i/3)*80;
+    cx.fillStyle='#1e1610';cx.strokeStyle='#3a2a1e';cx.lineWidth=1;
+    rr(x,y,200,65,8,true,true);
+    cx.font='28px sans-serif';cx.textAlign='left';
+    cx.fillText(d.emoji,x+10,y+42);
+    cx.font='bold 12px Georgia';cx.fillStyle='#e8d0a0';
+    cx.fillText(d.name,x+50,y+28);
+    cx.font='10px Georgia';cx.fillStyle='#806040';
+    cx.fillText(d.ingredients.join(', '),x+50,y+44);
+    cx.font='10px Georgia';cx.fillStyle='#fc2';cx.textAlign='right';
+    cx.fillText(d.value+' coins',x+190,y+28);
+    cx.textAlign='left';
+  });
+
+  // Stations
+  const stns=getStationsForRestaurant(rest);
+  cx.textAlign='center';cx.font='bold 12px Georgia';cx.fillStyle='#e8d0a0';
+  cx.fillText('STATIONS',400,310);
+  stns.forEach((s,i)=>{
+    cx.font='24px sans-serif';
+    cx.fillText(s.emoji,200+i*80,345);
+    cx.font='9px Georgia';cx.fillStyle='#806040';
+    cx.fillText(s.name,200+i*80,362);
+  });
+
+  btn(250,400,300,55,'🔔  START DAY','#d4570a','#a03808');
+  btn(310,475,180,35,'← World Map','#3a2a1e','#2a1a10');
+
+  cx.font='12px Georgia';cx.fillStyle='#806040';cx.textAlign='center';
+  cx.fillText('Best: '+(G.save.stars[G.save.currentRestaurant+'']||0)+' ⭐  |  🪙 '+fmt(G.save.coins),400,540);
+}
+
+// ── COOKING SCREEN (main gameplay) ──
+function drawCooking(){
+  const rest=G.day.rest;
+
+  // Kitchen background
+  const wg=cx.createLinearGradient(0,0,0,200);
+  wg.addColorStop(0,'#4a2a18');wg.addColorStop(1,'#2e1a0e');
+  cx.fillStyle=wg;cx.fillRect(0,0,800,200);
+  // Tile pattern
+  cx.fillStyle='rgba(255,255,255,.025)';
+  for(let r=0;r<4;r++)for(let c=0;c<12;c++){const o=r%2?35:0;cx.fillRect(c*70+o,r*50,67,47);}
   // Counter
-  ctx.fillStyle = C.counterTop;
-  ctx.fillRect(0, 240, 800, 15);
-  ctx.fillStyle = C.counter;
-  ctx.fillRect(0, 255, 800, 25);
-  const counterShine = ctx.createLinearGradient(0, 240, 0, 255);
-  counterShine.addColorStop(0, 'rgba(255,255,255,.15)');
-  counterShine.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.fillStyle = counterShine;
-  ctx.fillRect(0, 240, 800, 15);
-
+  cx.fillStyle='#a07828';cx.fillRect(0,195,800,12);
+  cx.fillStyle='#806018';cx.fillRect(0,207,800,18);
+  const csh=cx.createLinearGradient(0,195,0,207);csh.addColorStop(0,'rgba(255,255,255,.12)');csh.addColorStop(1,'rgba(255,255,255,0)');cx.fillStyle=csh;cx.fillRect(0,195,800,12);
   // Floor
-  ctx.fillStyle = C.floor;
-  ctx.fillRect(0, 280, 800, 320);
+  cx.fillStyle='#3a2418';cx.fillRect(0,225,800,375);
+  cx.fillStyle='rgba(0,0,0,.06)';
+  for(let r=0;r<10;r++)for(let c=0;c<12;c++)if((r+c)%2===0)cx.fillRect(c*70,225+r*38,70,38);
 
-  // Floor tiles
-  ctx.fillStyle = 'rgba(0,0,0,.08)';
-  for (let r = 0; r < 8; r++) {
-    for (let c = 0; c < 11; c++) {
-      if ((r + c) % 2 === 0) ctx.fillRect(c * 75, 280 + r * 40, 75, 40);
-    }
-  }
-}
-
-function drawGame() {
-  drawKitchenBg();
-
-  // ----- Draw Stations -----
-  STATIONS.forEach(s => {
-    const st = game.stations[s.id];
-    const isSelected = game.selectedStation === s.id;
-
-    // Station box
-    ctx.fillStyle = st.burned ? '#4a1a10' : st.done ? '#1a3a18' : isSelected ? '#3a2a18' : C.stationBg;
-    ctx.strokeStyle = st.burned ? '#ff3333' : st.done ? '#44cc44' : isSelected ? C.stationActive : C.stationBorder;
-    ctx.lineWidth = isSelected ? 3 : 1.5;
-    roundRect(s.x, s.y, s.w, s.h, 8, true, true);
-
-    // Station label
-    ctx.textAlign = 'center';
-    ctx.font = '28px sans-serif';
-    ctx.fillText(s.emoji, s.x + s.w/2, s.y + 35);
-    ctx.font = 'bold 12px sans-serif';
-    ctx.fillStyle = C.textWhite;
-    ctx.fillText(s.name, s.x + s.w/2, s.y + 55);
-
-    // Cooking progress bar
-    if (st.cooking) {
-      const barW = s.w - 20;
-      const barH = 8;
-      const barX = s.x + 10;
-      const barY = s.y + s.h - 18;
-
-      ctx.fillStyle = '#1a1008';
-      roundRect(barX, barY, barW, barH, 3, true, false);
-
-      const pct = Math.min(st.progress, 1);
-      const burnPct = st.progress > 1 ? Math.min((st.progress - 1) / 0.5, 1) : 0;
-      ctx.fillStyle = st.burned ? '#ff2222' : st.done ? (burnPct > 0 ? `rgb(${68+187*burnPct},${204-180*burnPct},${68-60*burnPct})` : '#44cc44') : '#e8590c';
-      roundRect(barX, barY, barW * Math.min(pct, 1), barH, 3, true, false);
-
-      // Food icon on station
-      ctx.font = '20px sans-serif';
-      ctx.fillText(st.food.emoji, s.x + s.w/2, s.y + 78);
-    }
-  });
-
-  // ----- Draw Customers -----
-  game.customers.forEach(c => {
-    const seat = SEATS[c.seat];
-    const offsetY = c.enterAnim * -80 + (c.state === 'served' ? (1 - c.serveAnim) * 30 : 0);
-    const alpha = c.state === 'served' ? c.serveAnim : (c.state === 'leaving' ? 1 - c.enterAnim : 1);
-
-    ctx.globalAlpha = alpha;
+  // ── Customers ──
+  G.customers.forEach(c=>{
+    const sx=120+c.seat*170,sy=100;
+    const oy=c.enterAnim*-60+(c.state==='happy'?20:0)+(c.state==='angry'?-30:0);
+    const al=c.state==='happy'||c.state==='angry'?Math.max(0,c.stateTimer):1;
+    cx.globalAlpha=al;
 
     // Customer body
-    const cx = seat.x;
-    const cy = seat.y + offsetY;
+    cx.font='34px sans-serif';cx.textAlign='center';
+    cx.fillText(c.type.emoji,sx,sy+25+oy);
 
-    // Shadow
-    ctx.fillStyle = 'rgba(0,0,0,.2)';
-    ctx.beginPath();
-    ctx.ellipse(cx, cy + 35, 25, 6, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Body
-    ctx.font = '36px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(c.type.emoji, cx, cy + 20);
+    // VIP indicator
+    if(c.type.isCritic){cx.font='10px Georgia';cx.fillStyle='#f44';cx.fillText('CRITIC',sx,sy-35+oy);}
 
     // Patience bar
-    if (c.state === 'waiting') {
-      const pRatio = c.patience / c.maxPatience;
-      const barW = 50;
-      const barX = cx - barW/2;
-      const barY = cy - 30;
+    if(c.state==='waiting'){
+      const pr=c.patience/c.maxPatience;
+      const bw=60,bx=sx-bw/2,by=sy-25+oy;
+      cx.fillStyle='#1a0e06';rr(bx,by,bw,6,3,true,false);
+      cx.fillStyle=pr>.5?'#4c4':pr>.25?'#cc0':'#c33';
+      rr(bx,by,bw*Math.max(pr,0),6,3,true,false);
+    }
 
-      ctx.fillStyle = '#1a0f0a';
-      roundRect(barX, barY, barW, 6, 3, true, false);
-
-      ctx.fillStyle = pRatio > 0.5 ? '#44cc44' : pRatio > 0.25 ? '#ddaa00' : '#ff3333';
-      roundRect(barX, barY, barW * pRatio, 6, 3, true, false);
-
-      // Order bubble
-      const bubbleW = 30 * c.order.length + 16;
-      const bubbleH = 36;
-      const bubbleX = cx - bubbleW/2;
-      const bubbleY = cy - 72;
-
-      // Bubble with pointer
-      ctx.fillStyle = C.bubbleBg;
-      ctx.strokeStyle = C.bubbleBorder;
-      ctx.lineWidth = 1;
-      roundRect(bubbleX, bubbleY, bubbleW, bubbleH, 8, true, true);
-
-      // Pointer triangle
-      ctx.fillStyle = C.bubbleBg;
-      ctx.beginPath();
-      ctx.moveTo(cx - 6, bubbleY + bubbleH);
-      ctx.lineTo(cx, bubbleY + bubbleH + 8);
-      ctx.lineTo(cx + 6, bubbleY + bubbleH);
-      ctx.fill();
-
-      // Food emojis in bubble
-      ctx.font = '22px sans-serif';
-      c.order.forEach((food, fi) => {
-        ctx.fillText(food.emoji, bubbleX + 20 + fi * 30, bubbleY + 25);
+    // Order bubble
+    if(c.state==='waiting'||c.state==='ordering'){
+      const bw=35*c.order.length+12,bh=38;
+      const bx=sx-bw/2,by=sy-72+oy;
+      cx.fillStyle='rgba(255,255,250,.92)';cx.strokeStyle='#cba';cx.lineWidth=1;
+      rr(bx,by,bw,bh,8,true,true);
+      // Pointer
+      cx.fillStyle='rgba(255,255,250,.92)';
+      cx.beginPath();cx.moveTo(sx-5,by+bh);cx.lineTo(sx,by+bh+7);cx.lineTo(sx+5,by+bh);cx.fill();
+      // Food items
+      cx.font='22px sans-serif';
+      c.order.forEach((d,di)=>{
+        cx.globalAlpha=c.served[di]?0.2:al;
+        cx.fillText(d.emoji,bx+20+di*35,by+27);
+        if(c.served[di]){cx.font='16px sans-serif';cx.fillText('✅',bx+28+di*35,by+30);cx.font='22px sans-serif';}
       });
     }
 
-    // Served check
-    if (c.state === 'served') {
-      ctx.font = '30px sans-serif';
-      ctx.fillText('😊', cx, cy - 20);
+    // Reaction
+    if(c.state==='happy'){cx.font='28px sans-serif';cx.fillText('😊',sx,sy-20+oy);}
+    if(c.state==='angry'){cx.font='28px sans-serif';cx.fillText('😠',sx,sy-20+oy);}
+
+    cx.globalAlpha=1;
+
+    // Serve button
+    if(G.plate&&c.state==='waiting'){
+      const canServe=c.order.some((d,i)=>!c.served[i]&&d.name===G.plate.dish.name);
+      if(canServe){
+        cx.fillStyle='#285a28';rr(sx-25,sy+35,50,22,5,true,false);
+        cx.font='bold 9px Georgia';cx.fillStyle='#fff';cx.textAlign='center';
+        cx.fillText('SERVE',sx,sy+50);
+      }
     }
-
-    ctx.globalAlpha = 1;
   });
 
-  // ----- Draw Plate Area -----
-  const plateX = 280, plateY = 415, plateW = 240, plateH = 65;
-  ctx.fillStyle = '#2a1a10';
-  ctx.strokeStyle = game.plate.length > 0 ? C.textGold : C.stationBorder;
-  ctx.lineWidth = 2;
-  roundRect(plateX, plateY, plateW, plateH, 10, true, true);
+  // ── Cooking Stations ──
+  const stns=G.day.stns;
+  const stnW=Math.min(130,700/stns.length);
+  const stnStartX=400-(stns.length*stnW)/2;
 
-  ctx.textAlign = 'center';
-  ctx.font = 'bold 11px sans-serif';
-  ctx.fillStyle = C.textDim;
-  ctx.fillText('SERVING PLATE', plateX + plateW/2, plateY + 14);
+  stns.forEach((sdef,i)=>{
+    const st=G.stations[sdef.id];
+    const x=stnStartX+i*stnW+5,y=240,w=stnW-10,h=85;
 
-  if (game.plate.length === 0) {
-    ctx.font = '12px sans-serif';
-    ctx.fillStyle = 'rgba(160,128,96,.4)';
-    ctx.fillText('Tap station to cook, tap ✅ to collect', plateX + plateW/2, plateY + 42);
-  } else {
-    ctx.font = '28px sans-serif';
-    game.plate.forEach((food, i) => {
-      ctx.fillText(food.emoji, plateX + 40 + i * 70, plateY + 48);
-    });
-  }
+    cx.fillStyle=st.burned?'#3a1208':st.done?'#1a2e18':st.cooking?'#2a1e14':('#1e1610');
+    cx.strokeStyle=st.burned?'#f33':st.done?'#4c4':st.needsTap?'#fc2':'#4a3a2e';
+    cx.lineWidth=st.needsTap?2.5:1.5;
+    rr(x,y,w,h,8,true,true);
 
-  // Clear plate button
-  if (game.plate.length > 0) {
-    drawSmallBtn(plateX + plateW - 30, plateY + 5, 25, 20, '✕', '#882222');
-  }
+    // Station icon
+    cx.font='26px sans-serif';cx.textAlign='center';
+    cx.fillText(sdef.emoji,x+w/2,y+30);
+    cx.font='bold 10px Georgia';cx.fillStyle='#c0a080';
+    cx.fillText(sdef.name,x+w/2,y+46);
 
-  // ----- Serve Buttons on Customers -----
-  if (game.plate.length > 0) {
-    game.customers.forEach(c => {
-      if (c.state !== 'waiting') return;
-      const seat = SEATS[c.seat];
-      // Check if order matches
-      const orderIds = c.order.map(f => f.id).sort();
-      const plateIds = game.plate.map(f => f.id).sort();
-      let match = orderIds.length === plateIds.length;
-      if (match) {
-        for (let i = 0; i < orderIds.length; i++) {
-          if (orderIds[i] !== plateIds[i]) { match = false; break; }
-        }
+    // Cooking food
+    if(st.cooking){
+      cx.font='18px sans-serif';
+      cx.fillText(st.cooking.emoji,x+w/2,y+67);
+
+      // Progress bar
+      const bw=w-16,bx=x+8,by=y+h-12;
+      cx.fillStyle='#0e0906';rr(bx,by,bw,7,3,true,false);
+      const pct=Math.min(st.progress,1);
+      const burnPct=st.progress>1?Math.min((st.progress-1)/0.6,1):0;
+      cx.fillStyle=st.burned?'#f22':st.done?(burnPct>0?`rgb(${68+187*burnPct},${204-180*burnPct},${68-60*burnPct})`:'#4c4'):'#d4570a';
+      rr(bx,by,bw*pct,7,3,true,false);
+
+      // Tap prompt
+      if(st.needsTap){
+        cx.font='bold 10px Georgia';cx.fillStyle='#fc2';
+        cx.fillText('TAP! '+sdef.actionEmoji,x+w/2,y+h+12);
       }
-      if (match) {
-        drawSmallBtn(seat.x - 22, seat.y + 30, 44, 22, 'SERVE', '#228822');
-      }
-    });
+    }
+    if(st.done&&!st.burned){
+      cx.font='bold 10px Georgia';cx.fillStyle='#4c4';
+      cx.fillText('✅ COLLECT',x+w/2,y+h+12);
+    }
+    if(st.burned){
+      cx.font='bold 10px Georgia';cx.fillStyle='#f44';
+      cx.fillText('🔥 BURNED',x+w/2,y+h+12);
+    }
+  });
+
+  // ── Plate Area ──
+  const px=20,py=355,pw=200,ph=60;
+  cx.fillStyle='#1e1610';cx.strokeStyle=G.plate?'#fc2':'#3a2a1e';cx.lineWidth=1.5;
+  rr(px,py,pw,ph,8,true,true);
+  cx.textAlign='center';cx.font='bold 10px Georgia';cx.fillStyle='#806040';
+  cx.fillText('PLATE',px+pw/2,py+14);
+  if(G.plate){
+    cx.font='28px sans-serif';cx.fillText(G.plate.dish.emoji,px+50,py+46);
+    cx.font='11px Georgia';cx.fillStyle='#e8d0a0';cx.textAlign='left';
+    cx.fillText(G.plate.dish.name,px+75,py+38);
+    if(G.plate.spice){cx.fillStyle=G.plate.spice.color;cx.fillText(G.plate.spice.emoji+' '+G.plate.spice.name,px+75,py+52);}
+    // Spice button
+    if(!G.plate.spice){
+      cx.fillStyle='#5a3a20';rr(px+pw-55,py+30,50,22,5,true,false);
+      cx.font='bold 9px Georgia';cx.fillStyle='#fc2';cx.textAlign='center';
+      cx.fillText('SPICE',px+pw-30,py+45);
+    }
+    // Trash
+    cx.fillStyle='#4a1a1a';rr(px+pw-55,py+5,50,22,5,true,false);
+    cx.font='bold 9px Georgia';cx.fillStyle='#f88';cx.textAlign='center';
+    cx.fillText('TRASH',px+pw-30,py+20);
+  }else{
+    cx.font='11px Georgia';cx.fillStyle='rgba(120,100,80,.4)';
+    cx.fillText('Collect from station',px+pw/2,py+42);
   }
 
-  // ----- Food Menu (what can be cooked) -----
-  const menuY = 495;
-  ctx.fillStyle = C.uiBg;
-  ctx.fillRect(0, menuY - 10, 800, 120);
-  ctx.fillStyle = C.uiBorder;
-  ctx.fillRect(0, menuY - 10, 800, 2);
+  // ── Food Menu (bottom) ──
+  const my=430;
+  cx.fillStyle='rgba(14,9,6,.92)';cx.fillRect(0,my-5,800,175);
+  cx.fillStyle='#3a2a1e';cx.fillRect(0,my-5,800,2);
 
-  ctx.textAlign = 'center';
-  ctx.font = 'bold 11px sans-serif';
-  ctx.fillStyle = C.textDim;
-  ctx.fillText('TAP FOOD TO COOK  →  COLLECT FROM STATION  →  SERVE TO CUSTOMER', 400, menuY + 3);
+  cx.textAlign='center';cx.font='bold 10px Georgia';cx.fillStyle='#806040';
+  cx.fillText('TAP DISH TO COOK',400,my+10);
 
-  const foodsAvail = game.level.foodPool;
-  const foodW = Math.min(75, 750 / foodsAvail.length);
-  const foodStartX = 400 - (foodsAvail.length * foodW) / 2;
+  const dishes=G.day.rest.dishes;
+  const dw=Math.min(120,750/dishes.length);
+  const dsx=400-(dishes.length*dw)/2;
 
-  foodsAvail.forEach((food, i) => {
-    const fx = foodStartX + i * foodW;
-    const fy = menuY + 15;
-
-    // Find if any station of this type is free
-    const stationFree = !game.stations[food.station].cooking;
-    ctx.globalAlpha = stationFree ? 1 : 0.35;
-
-    ctx.fillStyle = '#2a1a10';
-    ctx.strokeStyle = stationFree ? food.color : '#333';
-    ctx.lineWidth = 1.5;
-    roundRect(fx, fy, foodW - 6, 55, 6, true, true);
-
-    ctx.font = '24px sans-serif';
-    ctx.fillText(food.emoji, fx + (foodW-6)/2, fy + 28);
-    ctx.font = '9px sans-serif';
-    ctx.fillStyle = stationFree ? C.textWhite : '#666';
-    ctx.fillText(food.name, fx + (foodW-6)/2, fy + 46);
-
-    ctx.globalAlpha = 1;
+  dishes.forEach((d,i)=>{
+    const dx=dsx+i*dw+4,dy=my+18,ddw=dw-8,ddh=68;
+    const stFree=!G.stations[d.station]||!G.stations[d.station].cooking;
+    cx.globalAlpha=stFree?1:0.3;
+    cx.fillStyle='#1e1610';cx.strokeStyle=stFree?d.station==='grill'?'#c44':d.station==='fryer'?'#c82':d.station==='chop'?'#4a4':d.station==='pot'?'#48c':d.station==='oven'?'#c62':d.station==='saute'?'#ca4':d.station==='steamer'?'#8ac':'#aaa':'#333';
+    cx.lineWidth=1;rr(dx,dy,ddw,ddh,6,true,true);
+    cx.font='26px sans-serif';cx.textAlign='center';
+    cx.fillText(d.emoji,dx+ddw/2,dy+30);
+    cx.font='9px Georgia';cx.fillStyle=stFree?'#e8d0a0':'#555';
+    cx.fillText(d.name,dx+ddw/2,dy+48);
+    cx.font='8px Georgia';cx.fillStyle='#fc2';
+    cx.fillText(d.value+'🪙',dx+ddw/2,dy+60);
+    cx.globalAlpha=1;
   });
 
-  // ----- HUD -----
-  // Top bar
-  ctx.fillStyle = C.uiBg;
-  ctx.fillRect(0, 0, 800, 36);
-  ctx.fillStyle = C.uiBorder;
-  ctx.fillRect(0, 36, 800, 2);
+  // ── HUD ──
+  cx.fillStyle='rgba(14,9,6,.9)';cx.fillRect(0,0,800,36);
+  cx.fillStyle='#3a2a1e';cx.fillRect(0,36,800,1);
 
-  ctx.textAlign = 'left';
-  ctx.font = 'bold 14px sans-serif';
-  ctx.fillStyle = C.textWhite;
-  ctx.fillText('Level ' + game.levelNum, 12, 24);
+  cx.textAlign='left';cx.font='bold 13px Georgia';cx.fillStyle=rest.color;
+  cx.fillText(rest.name,10,24);
 
-  ctx.textAlign = 'center';
-  ctx.fillStyle = C.textGold;
-  ctx.font = 'bold 16px sans-serif';
-  ctx.fillText('Score: ' + game.score, 400, 24);
+  cx.textAlign='center';cx.font='bold 15px Georgia';cx.fillStyle='#fc2';
+  cx.fillText('🪙 '+G.tipsEarned,400,24);
 
-  ctx.textAlign = 'right';
-  ctx.font = '13px sans-serif';
-  ctx.fillStyle = C.textDim;
-  ctx.fillText('🪙 ' + game.totalCoins, 788, 16);
-  ctx.fillText(game.customersServed + '/' + game.totalCustomersThisLevel + ' served', 788, 30);
+  // Timer
+  cx.textAlign='right';
+  const tpct=G.dayTimer/G.maxDayTime;
+  cx.font='bold 13px Georgia';cx.fillStyle=tpct>.3?'#4c4':tpct>.15?'#cc0':'#f44';
+  cx.fillText('⏱️ '+Math.ceil(G.dayTimer)+'s',790,16);
+  cx.font='11px Georgia';cx.fillStyle='#a08060';
+  cx.fillText(G.customersServed+'/'+G.day.maxCustomers+' served',790,30);
 
-  // Combo indicator
-  if (game.combo > 1) {
-    ctx.textAlign = 'left';
-    ctx.font = 'bold 14px sans-serif';
-    ctx.fillStyle = '#ff8800';
-    ctx.fillText(game.combo + 'x COMBO!', 120, 24);
-  }
-
-  // ----- Floating Text -----
-  game.floats.forEach(f => {
-    const alpha = f.life / f.maxLife;
-    ctx.globalAlpha = alpha;
-    ctx.textAlign = 'center';
-    ctx.font = 'bold 16px sans-serif';
-    ctx.fillStyle = f.color;
-    ctx.fillText(f.text, f.x, f.y);
-  });
-  ctx.globalAlpha = 1;
-
-  // Particles
-  game.particles.forEach(p => {
-    ctx.globalAlpha = p.life;
-    ctx.fillStyle = p.color;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
-    ctx.fill();
-  });
-  ctx.globalAlpha = 1;
+  if(G.combo>1){cx.textAlign='left';cx.font='bold 12px Georgia';cx.fillStyle='#f80';cx.fillText(G.combo+'x COMBO',160,24);}
 }
 
-function drawLevelComplete() {
-  drawKitchenBg();
-  ctx.fillStyle = 'rgba(10,5,2,.8)';
-  ctx.fillRect(0, 0, 800, 600);
+// ── Spice Rack overlay ──
+function drawSpiceRack(){
+  drawCooking();
+  cx.fillStyle='rgba(0,0,0,.7)';cx.fillRect(0,0,800,600);
 
-  ctx.textAlign = 'center';
-  ctx.font = 'bold 40px sans-serif';
-  ctx.fillStyle = C.textGold;
-  ctx.fillText('Level ' + game.levelNum + ' Complete!', 400, 140);
+  cx.fillStyle='#2a1e14';cx.strokeStyle='#5a4020';cx.lineWidth=2;
+  rr(150,150,500,300,12,true,true);
+
+  cx.textAlign='center';cx.font='bold 20px Georgia';cx.fillStyle='#fc2';
+  cx.fillText('🧂 Spice Rack',400,185);
+  cx.font='12px Georgia';cx.fillStyle='#a08060';
+  cx.fillText('Season your dish for bonus coins!',400,205);
+
+  SPICES.forEach((s,i)=>{
+    const x=175+i*80,y=225,w=70,h=90;
+    const have=G.save.spicesOwned[s.id]||0;
+    cx.globalAlpha=have>0?1:0.3;
+    cx.fillStyle='#1e1610';cx.strokeStyle=s.color;cx.lineWidth=1.5;
+    rr(x,y,w,h,6,true,true);
+    cx.font='28px sans-serif';cx.textAlign='center';
+    cx.fillText(s.emoji,x+w/2,y+35);
+    cx.font='bold 10px Georgia';cx.fillStyle='#e8d0a0';
+    cx.fillText(s.name,x+w/2,y+55);
+    cx.font='10px Georgia';cx.fillStyle=have>0?'#4c4':'#f44';
+    cx.fillText('x'+have,x+w/2,y+72);
+    cx.globalAlpha=1;
+  });
+
+  btn(300,360,200,35,'Cancel','#5a4020','#3a2a14');
+}
+
+// ── Day End ──
+function drawDayEnd(){
+  cx.fillStyle='#0e0906';cx.fillRect(0,0,800,600);
+
+  cx.textAlign='center';cx.font='bold 36px Georgia';cx.fillStyle='#fc2';
+  cx.fillText('Day Complete!',400,100);
+
+  cx.font='italic 16px Georgia';cx.fillStyle=curRest().color;
+  cx.fillText(curRest().name,400,130);
 
   // Stars
-  ctx.font = '50px sans-serif';
-  for (let i = 0; i < 3; i++) {
-    ctx.fillStyle = i < game.stars ? C.textGold : '#333';
-    ctx.fillText('⭐', 310 + i * 60, 210);
-  }
+  const stars=G.day.resultStars;
+  cx.font='44px sans-serif';
+  for(let i=0;i<3;i++){cx.fillStyle=i<stars?'#fc2':'#333';cx.fillText('⭐',290+i*60,190);}
 
-  ctx.font = '20px sans-serif';
-  ctx.fillStyle = C.textWhite;
-  ctx.fillText('Score: ' + game.score, 400, 270);
-  ctx.fillText('Served: ' + game.customersServed + '/' + game.totalCustomersThisLevel, 400, 300);
-  ctx.fillText('Coins: +' + game.score, 400, 330);
+  cx.font='18px Georgia';cx.fillStyle='#e8d0a0';
+  cx.fillText('Tips Earned: 🪙 '+G.day.resultTips,400,240);
+  cx.fillText('Customers Served: '+G.customersServed+'/'+G.day.maxCustomers,400,270);
+  cx.fillText('Customers Lost: '+G.customersLost,400,300);
 
-  if (game.highestCombo > 1) {
-    ctx.fillStyle = '#ff8800';
-    ctx.fillText('Best Combo: ' + game.highestCombo + 'x', 400, 360);
-  }
+  cx.font='14px Georgia';cx.fillStyle='#a08060';
+  cx.fillText('Total Coins: 🪙 '+fmt(G.save.coins),400,340);
 
-  drawButton(250, 400, 130, 50, 'NEXT ▶', '#e8590c', '#c2410c');
-  drawButton(420, 400, 130, 50, 'MENU', '#5a4020', '#3d2a15');
+  btn(200,380,180,50,'▶ PLAY AGAIN','#d4570a','#a03808');
+  btn(420,380,180,50,'🗺️ WORLD MAP','#5a4020','#3a2a14');
 }
 
-function drawGameOver() {
-  drawKitchenBg();
-  ctx.fillStyle = 'rgba(10,5,2,.85)';
-  ctx.fillRect(0, 0, 800, 600);
+// ── Shop ──
+function drawShop(){
+  cx.fillStyle='#0e0906';cx.fillRect(0,0,800,600);
+  cx.textAlign='center';cx.font='bold 28px Georgia';cx.fillStyle='#fc2';
+  cx.fillText('🛒 Shop & Upgrades',400,40);
+  cx.font='14px Georgia';cx.fillStyle='#fc2';
+  cx.fillText('🪙 '+fmt(G.save.coins)+' coins',400,65);
 
-  ctx.textAlign = 'center';
-  ctx.font = 'bold 40px sans-serif';
-  ctx.fillStyle = C.textRed;
-  ctx.fillText('Kitchen Closed!', 400, 160);
-
-  ctx.font = '18px sans-serif';
-  ctx.fillStyle = C.textDim;
-  ctx.fillText('Too many customers left unhappy', 400, 200);
-
-  ctx.font = '20px sans-serif';
-  ctx.fillStyle = C.textWhite;
-  ctx.fillText('Score: ' + game.score, 400, 260);
-  ctx.fillText('Served: ' + game.customersServed + '/' + game.totalCustomersThisLevel, 400, 290);
-
-  drawButton(250, 350, 130, 50, 'RETRY', '#e8590c', '#c2410c');
-  drawButton(420, 350, 130, 50, 'MENU', '#5a4020', '#3d2a15');
-}
-
-function drawAchievements() {
-  ctx.fillStyle = C.bg;
-  ctx.fillRect(0, 0, 800, 600);
-
-  ctx.textAlign = 'center';
-  ctx.font = 'bold 28px sans-serif';
-  ctx.fillStyle = C.textGold;
-  ctx.fillText('🏆 Crystal Collection (' + game.achievements.length + '/30)', 400, 40);
-
-  const cols = 6;
-  const cellW = 115, cellH = 90;
-  const startX = 400 - (cols * cellW) / 2;
-
-  ACH_DEFS.forEach((a, i) => {
-    const col = i % cols;
-    const row = Math.floor(i / cols);
-    const x = startX + col * cellW;
-    const y = 60 + row * cellH;
-    const unlocked = game.achievements.includes(a.id);
-
-    ctx.fillStyle = unlocked ? 'rgba(245,197,66,.08)' : 'rgba(30,20,15,.5)';
-    ctx.strokeStyle = unlocked ? C.textGold : '#3a2a1e';
-    ctx.lineWidth = 1;
-    roundRect(x + 4, y + 4, cellW - 8, cellH - 8, 6, true, true);
-
-    // Try to draw achievement image
-    const img = achImages[a.id];
-    if (img && img.complete && img.naturalWidth > 0) {
-      ctx.globalAlpha = unlocked ? 1 : 0.2;
-      ctx.drawImage(img, x + cellW/2 - 20, y + 12, 40, 40);
-      ctx.globalAlpha = 1;
-    } else {
-      ctx.font = '28px sans-serif';
-      ctx.globalAlpha = unlocked ? 1 : 0.2;
-      ctx.fillText(unlocked ? '💎' : '🔒', x + cellW/2, y + 44);
-      ctx.globalAlpha = 1;
-    }
-
-    ctx.font = '9px sans-serif';
-    ctx.fillStyle = unlocked ? C.textGold : C.textDim;
-    ctx.fillText(a.name, x + cellW/2, y + 64);
-    ctx.font = '8px sans-serif';
-    ctx.fillStyle = C.textDim;
-    ctx.fillText(a.desc, x + cellW/2, y + 76);
+  // Upgrades
+  const ups=[
+    {id:'cookSpeed',name:'Cook Speed',desc:'Dishes cook 10% faster',cost:100+G.save.upgrades.cookSpeed*150,max:5,emoji:'⚡'},
+    {id:'patience',name:'Extra Patience',desc:'Customers wait 5s longer',cost:150+G.save.upgrades.patience*200,max:5,emoji:'⏳'},
+    {id:'tipBonus',name:'Tip Bonus',desc:'Tips increased by 10%',cost:200+G.save.upgrades.tipBonus*250,max:5,emoji:'💰'},
+  ];
+  ups.forEach((u,i)=>{
+    const x=100,y=90+i*80,w=600,h=68;
+    const lvl=G.save.upgrades[u.id];const maxed=lvl>=u.max;
+    cx.fillStyle='#1e1610';cx.strokeStyle=maxed?'#fc2':'#3a2a1e';cx.lineWidth=1;
+    rr(x,y,w,h,8,true,true);
+    cx.font='28px sans-serif';cx.textAlign='left';cx.fillText(u.emoji,x+15,y+42);
+    cx.font='bold 14px Georgia';cx.fillStyle='#e8d0a0';cx.fillText(u.name+' (Lv '+lvl+'/'+u.max+')',x+55,y+28);
+    cx.font='11px Georgia';cx.fillStyle='#806040';cx.fillText(u.desc,x+55,y+48);
+    if(!maxed){
+      const canBuy=G.save.coins>=u.cost;
+      cx.fillStyle=canBuy?'#2a5a30':'#3a2020';rr(x+w-100,y+15,85,38,6,true,false);
+      cx.font='bold 12px Georgia';cx.fillStyle=canBuy?'#fff':'#f44';cx.textAlign='center';
+      cx.fillText('🪙 '+u.cost,x+w-57,y+39);
+    }else{cx.font='bold 12px Georgia';cx.fillStyle='#fc2';cx.textAlign='right';cx.fillText('MAX',x+w-15,y+39);}
   });
 
-  drawButton(325, 555, 150, 35, '← BACK', '#5a4020', '#3d2a15');
+  // Helpers
+  cx.textAlign='center';cx.font='bold 16px Georgia';cx.fillStyle='#e8a040';
+  cx.fillText('— Chef Helpers —',400,340);
+
+  const helpers=[
+    {id:'fry_guy',name:'Fry Guy',desc:'Auto-taps the deep fryer',cost:300,emoji:'👨‍🍳'},
+    {id:'spice_guy',name:'Spice Guy',desc:'Auto-seasons your plates',cost:500,emoji:'🧑‍🍳'},
+  ];
+  helpers.forEach((h,i)=>{
+    const x=100+i*320,y=360,w=280,h2=65;
+    const owned=G.save.helpers[h.id];
+    cx.fillStyle='#1e1610';cx.strokeStyle=owned?'#4c4':'#3a2a1e';cx.lineWidth=1;
+    rr(x,y,w,h2,8,true,true);
+    cx.font='28px sans-serif';cx.textAlign='left';cx.fillText(h.emoji,x+15,y+42);
+    cx.font='bold 13px Georgia';cx.fillStyle='#e8d0a0';cx.fillText(h.name,x+55,y+28);
+    cx.font='10px Georgia';cx.fillStyle='#806040';cx.fillText(h.desc,x+55,y+45);
+    if(!owned){
+      const canBuy=G.save.coins>=h.cost;
+      cx.fillStyle=canBuy?'#2a5a30':'#3a2020';rr(x+w-90,y+15,75,35,6,true,false);
+      cx.font='bold 11px Georgia';cx.fillStyle=canBuy?'#fff':'#f44';cx.textAlign='center';cx.fillText('🪙 '+h.cost,x+w-52,y+37);
+    }else{cx.font='bold 12px Georgia';cx.fillStyle='#4c4';cx.textAlign='right';cx.fillText('✅ HIRED',x+w-15,y+37);}
+  });
+
+  // Spices
+  cx.textAlign='center';cx.font='bold 16px Georgia';cx.fillStyle='#e8a040';
+  cx.fillText('— Buy Spices —',400,450);
+  SPICES.forEach((s,i)=>{
+    const x=60+i*120,y=470,w=110,h2=65;
+    cx.fillStyle='#1e1610';cx.strokeStyle=s.color;cx.lineWidth=1;
+    rr(x,y,w,h2,6,true,true);
+    cx.font='22px sans-serif';cx.textAlign='center';
+    cx.fillText(s.emoji,x+w/2,y+25);
+    cx.font='9px Georgia';cx.fillStyle='#e8d0a0';
+    cx.fillText(s.name+' x'+(G.save.spicesOwned[s.id]||0),x+w/2,y+40);
+    cx.fillStyle='#2a5a30';rr(x+15,y+45,w-30,16,4,true,false);
+    cx.font='bold 9px Georgia';cx.fillStyle='#fff';
+    cx.fillText('🪙 25 (+3)',x+w/2,y+57);
+  });
+
+  btn(300,555,200,35,'← Back','#5a4020','#3a2a14');
 }
 
-// ----- UI HELPERS -----
-function roundRect(x, y, w, h, r, fill, stroke) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
-  if (fill) ctx.fill();
-  if (stroke) ctx.stroke();
+// ── Achievements Screen ──
+function drawAchScreen(){
+  cx.fillStyle='#0e0906';cx.fillRect(0,0,800,600);
+  cx.textAlign='center';cx.font='bold 24px Georgia';cx.fillStyle='#fc2';
+  cx.fillText('🏆 Crystal Collection ('+G.save.achievements.length+'/30)',400,35);
+
+  const cols=6,cw=118,ch=85;
+  const sx=400-(cols*cw)/2;
+  ACH.forEach((a,i)=>{
+    const c=i%cols,r=Math.floor(i/cols);
+    const x=sx+c*cw+4,y=50+r*ch+4,w=cw-8,h=ch-8;
+    const un=G.save.achievements.includes(a.id);
+    cx.fillStyle=un?'rgba(245,197,66,.06)':'rgba(20,16,12,.5)';
+    cx.strokeStyle=un?'#fc2':'#2a1e14';cx.lineWidth=1;
+    rr(x,y,w,h,6,true,true);
+    const img=G.achImages[a.id];
+    if(img&&img.complete&&img.naturalWidth){
+      cx.globalAlpha=un?1:0.15;
+      cx.drawImage(img,x+w/2-18,y+8,36,36);
+    }else{
+      cx.font='24px sans-serif';cx.globalAlpha=un?1:0.15;cx.textAlign='center';
+      cx.fillText(un?'💎':'🔒',x+w/2,y+36);
+    }
+    cx.globalAlpha=1;
+    cx.font='8px Georgia';cx.fillStyle=un?'#fc2':'#555';cx.textAlign='center';
+    cx.fillText(a.name,x+w/2,y+56);
+    cx.font='7px Georgia';cx.fillStyle='#806040';
+    cx.fillText(a.desc,x+w/2,y+67);
+  });
+
+  btn(325,555,150,32,'← Back','#5a4020','#3a2a14');
 }
 
-function drawButton(x, y, w, h, text, color, darkColor) {
-  ctx.fillStyle = darkColor;
-  roundRect(x, y + 3, w, h, 8, true, false);
-  ctx.fillStyle = color;
-  roundRect(x, y, w, h, 8, true, false);
-  const shine = ctx.createLinearGradient(x, y, x, y + h);
-  shine.addColorStop(0, 'rgba(255,255,255,.15)');
-  shine.addColorStop(0.5, 'rgba(255,255,255,0)');
-  ctx.fillStyle = shine;
-  roundRect(x, y, w, h, 8, true, false);
-  ctx.textAlign = 'center';
-  ctx.font = 'bold 16px sans-serif';
-  ctx.fillStyle = '#fff';
-  ctx.fillText(text, x + w/2, y + h/2 + 6);
+// ── Button helper ──
+function btn(x,y,w,h,t,c1,c2){
+  cx.fillStyle=c2;rr(x,y+3,w,h,8,true,false);
+  cx.fillStyle=c1;rr(x,y,w,h,8,true,false);
+  const sh=cx.createLinearGradient(x,y,x,y+h);sh.addColorStop(0,'rgba(255,255,255,.12)');sh.addColorStop(.5,'rgba(255,255,255,0)');cx.fillStyle=sh;rr(x,y,w,h,8,true,false);
+  cx.textAlign='center';cx.font='bold 14px Georgia';cx.fillStyle='#fff';cx.fillText(t,x+w/2,y+h/2+5);
 }
 
-function drawSmallBtn(x, y, w, h, text, color) {
-  ctx.fillStyle = color;
-  roundRect(x, y, w, h, 4, true, false);
-  ctx.textAlign = 'center';
-  ctx.font = 'bold 10px sans-serif';
-  ctx.fillStyle = '#fff';
-  ctx.fillText(text, x + w/2, y + h/2 + 4);
-}
+// ── INPUT ──
+function gp(e){const r=cv.getBoundingClientRect();return{x:(e.clientX-r.left)/r.width*800,y:(e.clientY-r.top)/r.height*600}}
+function hit(px,py,rx,ry,rw,rh){return px>=rx&&px<=rx+rw&&py>=ry&&py<=ry+rh}
 
-// ----- INPUT -----
-function getCanvasPos(e) {
-  const rect = canvas.getBoundingClientRect();
-  const cx = (e.clientX - rect.left) / rect.width * 800;
-  const cy = (e.clientY - rect.top) / rect.height * 600;
-  return { x: cx, y: cy };
-}
+function click(e){
+  const{x,y}=gp(e);
 
-function hitTest(px, py, rx, ry, rw, rh) {
-  return px >= rx && px <= rx + rw && py >= ry && py <= ry + rh;
-}
-
-function handleClick(e) {
-  const pos = getCanvasPos(e);
-  const { x, y } = pos;
-  game.totalClicks++;
-
-  if (game.screen === 'title') {
-    if (hitTest(x, y, 300, 380, 200, 55)) startLevel(game.levelNum);
-    else if (hitTest(x, y, 300, 450, 200, 45)) game.screen = 'achievements';
+  if(G.screen==='title'){
+    if(hit(x,y,270,340,260,55)){G.screen='worldmap';return;}
+    if(hit(x,y,270,410,260,45)){G.screen='achievements';return;}
+    if(hit(x,y,270,465,260,45)){G.screen='shop';return;}
     return;
   }
-
-  if (game.screen === 'levelComplete') {
-    if (hitTest(x, y, 250, 400, 130, 50)) startLevel(game.levelNum + 1);
-    else if (hitTest(x, y, 420, 400, 130, 50)) game.screen = 'title';
-    return;
-  }
-
-  if (game.screen === 'gameOver') {
-    if (hitTest(x, y, 250, 350, 130, 50)) startLevel(game.levelNum);
-    else if (hitTest(x, y, 420, 350, 130, 50)) game.screen = 'title';
-    return;
-  }
-
-  if (game.screen === 'achievements') {
-    if (hitTest(x, y, 325, 555, 150, 35)) game.screen = 'title';
-    return;
-  }
-
-  if (game.screen !== 'playing') return;
-
-  // Check food menu clicks
-  const menuY = 495;
-  const foodsAvail = game.level.foodPool;
-  const foodW = Math.min(75, 750 / foodsAvail.length);
-  const foodStartX = 400 - (foodsAvail.length * foodW) / 2;
-
-  for (let i = 0; i < foodsAvail.length; i++) {
-    const fx = foodStartX + i * foodW;
-    const fy = menuY + 15;
-    if (hitTest(x, y, fx, fy, foodW - 6, 55)) {
-      const food = foodsAvail[i];
-      const st = game.stations[food.station];
-      if (!st.cooking) {
-        startCooking(food.station, food);
-        game.selectedStation = food.station;
+  if(G.screen==='worldmap'){
+    if(hit(x,y,700,10,80,30)){G.screen='title';return;}
+    RESTAURANTS.forEach((r,i)=>{
+      const rx=60+i*145,ry=80,rw=130,rh=420;
+      if(!hit(x,y,rx,ry,rw,rh))return;
+      const un=G.save.unlockedRestaurants.includes(i);
+      if(un){G.save.currentRestaurant=i;G.screen='restaurant';return;}
+      if(G.save.coins>=r.unlockCost){
+        G.save.coins-=r.unlockCost;
+        G.save.unlockedRestaurants.push(i);
+        addFloat(rx+rw/2,ry+rh/2,'🔓 Unlocked!','#fc2',2);
+        save();
       }
-      return;
-    }
+    });
+    return;
   }
-
-  // Check station clicks (collect cooked food)
-  for (const s of STATIONS) {
-    if (hitTest(x, y, s.x, s.y, s.w, s.h)) {
-      const st = game.stations[s.id];
-      if (st.done || st.burned) {
-        const food = collectFromStation(s.id);
-        if (food) addToPlate(food);
+  if(G.screen==='restaurant'){
+    if(hit(x,y,250,400,300,55)){startDay();return;}
+    if(hit(x,y,310,475,180,35)){G.screen='worldmap';return;}
+    return;
+  }
+  if(G.screen==='spiceRack'){
+    SPICES.forEach((s,i)=>{
+      if(hit(x,y,175+i*80,225,70,90)&&(G.save.spicesOwned[s.id]||0)>0){
+        applySpice(s);G.screen='cooking';
       }
-      game.selectedStation = s.id;
-      return;
-    }
+    });
+    if(hit(x,y,300,360,200,35))G.screen='cooking';
+    return;
   }
-
-  // Check serve to customer
-  if (game.plate.length > 0) {
-    for (let i = 0; i < game.customers.length; i++) {
-      const c = game.customers[i];
-      if (c.state !== 'waiting') continue;
-      const seat = SEATS[c.seat];
-      // Click on customer or serve button area
-      if (hitTest(x, y, seat.x - 40, seat.y - 80, 80, 140)) {
-        if (tryServeCustomer(i)) return;
+  if(G.screen==='cooking'){
+    // Food menu
+    const dishes=G.day.rest.dishes;
+    const dw=Math.min(120,750/dishes.length);
+    const dsx=400-(dishes.length*dw)/2;
+    const my=430;
+    dishes.forEach((d,i)=>{
+      if(hit(x,y,dsx+i*dw+4,my+18,dw-8,68)){
+        if(G.stations[d.station]&&!G.stations[d.station].cooking){startCook(d.station,d);}
       }
-    }
+    });
+    // Stations
+    const stns=G.day.stns;
+    const stnW=Math.min(130,700/stns.length);
+    const stnStartX=400-(stns.length*stnW)/2;
+    stns.forEach((sdef,i)=>{
+      if(hit(x,y,stnStartX+i*stnW+5,240,stnW-10,85)){tapStation(sdef.id);}
+    });
+    // Serve to customer
+    G.customers.forEach((c,ci)=>{
+      const sx=120+c.seat*170;
+      if(hit(x,y,sx-50,30,100,150)){
+        if(G.plate&&c.state==='waiting')serveTo(ci);
+      }
+    });
+    // Plate spice button
+    if(G.plate&&!G.plate.spice&&hit(x,y,165,385,50,22)){G.screen='spiceRack';return;}
+    // Plate trash
+    if(G.plate&&hit(x,y,165,360,50,22)){G.plate=null;return;}
+    return;
   }
-
-  // Clear plate button
-  const plateX = 280, plateY = 415, plateW = 240;
-  if (game.plate.length > 0 && hitTest(x, y, plateX + plateW - 35, plateY, 35, 25)) {
-    clearPlate();
+  if(G.screen==='dayEnd'){
+    if(hit(x,y,200,380,180,50)){startDay();return;}
+    if(hit(x,y,420,380,180,50)){G.screen='worldmap';return;}
+    return;
+  }
+  if(G.screen==='shop'){
+    // Upgrades
+    const ups=['cookSpeed','patience','tipBonus'];
+    const costs=[100+G.save.upgrades.cookSpeed*150,150+G.save.upgrades.patience*200,200+G.save.upgrades.tipBonus*250];
+    ups.forEach((u,i)=>{
+      if(hit(x,y,600,105+i*80,85,38)&&G.save.upgrades[u]<5&&G.save.coins>=costs[i]){
+        G.save.coins-=costs[i];G.save.upgrades[u]++;save();
+        addFloat(400,90+i*80,'⬆️ Upgraded!','#4c4',1);
+      }
+    });
+    // Helpers
+    const helpers=[{id:'fry_guy',cost:300},{id:'spice_guy',cost:500}];
+    helpers.forEach((h,i)=>{
+      if(hit(x,y,410+i*320,375,75,35)&&!G.save.helpers[h.id]&&G.save.coins>=h.cost){
+        G.save.coins-=h.cost;G.save.helpers[h.id]=true;save();
+        addFloat(300+i*320,360,'✅ Hired!','#4c4',1.5);
+      }
+    });
+    // Spices
+    SPICES.forEach((s,i)=>{
+      if(hit(x,y,75+i*120,515,80,16)&&G.save.coins>=25){
+        G.save.coins-=25;G.save.spicesOwned[s.id]=(G.save.spicesOwned[s.id]||0)+3;save();
+        addFloat(115+i*120,500,'+3 '+s.emoji,'#4c4',1);
+      }
+    });
+    if(hit(x,y,300,555,200,35)){G.screen='title';return;}
+    return;
+  }
+  if(G.screen==='achievements'){
+    if(hit(x,y,325,555,150,32)){G.screen='title';return;}
     return;
   }
 }
 
-canvas.addEventListener('click', handleClick);
-canvas.addEventListener('touchstart', e => {
-  e.preventDefault();
-  if (e.touches[0]) {
-    handleClick({ clientX: e.touches[0].clientX, clientY: e.touches[0].clientY });
-  }
-}, { passive: false });
+cv.addEventListener('click',click);
+cv.addEventListener('touchstart',e=>{e.preventDefault();if(e.touches[0])click({clientX:e.touches[0].clientX,clientY:e.touches[0].clientY})},{passive:false});
 
-// ----- SAVE / LOAD -----
-const SAVE_KEY = 'orderup_chaos_v2';
+// ── PRELOAD ──
+let loadCount=0,loadTotal=ACH.length+1;
+function onLoad(){loadCount++;document.getElementById('lf').style.width=(loadCount/loadTotal*100)+'%';if(loadCount>=loadTotal)finishLoad();}
+ACH.forEach(a=>{const img=new Image();img.onload=onLoad;img.onerror=onLoad;img.src='/assets/achievements/icon_achievements_crystal_'+a.id+'.png';G.achImages[a.id]=img;});
+const iconImg=new Image();iconImg.onload=onLoad;iconImg.onerror=onLoad;iconImg.src='/assets/ui/icon.png';
 
-function saveGame() {
-  try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify({
-      levelNum: game.screen === 'playing' ? game.levelNum : (game.screen === 'levelComplete' ? game.levelNum + 1 : game.levelNum),
-      totalCoins: game.totalCoins,
-      achievements: game.achievements,
-      totalDishesServed: game.totalDishesServed,
-      highestCombo: game.highestCombo,
-    }));
-  } catch(e) {}
-}
+setTimeout(finishLoad,4000);
+let started=false;
+function finishLoad(){if(started)return;started=true;load();document.getElementById('loading').classList.add('done');requestAnimationFrame(loop);}
 
-function loadGame() {
-  try {
-    const raw = localStorage.getItem(SAVE_KEY);
-    if (raw) {
-      const data = JSON.parse(raw);
-      game.levelNum = data.levelNum || 1;
-      game.totalCoins = data.totalCoins || 0;
-      game.achievements = data.achievements || [];
-      game.totalDishesServed = data.totalDishesServed || 0;
-      game.highestCombo = data.highestCombo || 0;
-    }
-  } catch(e) {}
-}
+let lt=0;
+function loop(now){const dt=Math.min((now-lt)/1000,.05);lt=now;update(dt);draw();requestAnimationFrame(loop);}
 
-// ----- PRELOAD ACHIEVEMENT IMAGES -----
-const achImages = {};
-let loadedCount = 0;
-const totalToLoad = ACH_DEFS.length + 1;
-
-function onAssetLoad() {
-  loadedCount++;
-  loadFill.style.width = (loadedCount / totalToLoad * 100) + '%';
-  if (loadedCount >= totalToLoad) finishLoading();
-}
-
-ACH_DEFS.forEach(a => {
-  const img = new Image();
-  img.onload = onAssetLoad;
-  img.onerror = onAssetLoad;
-  img.src = '/assets/achievements/icon_achievements_crystal_' + a.id + '.png';
-  achImages[a.id] = img;
-});
-// Icon
-const iconImg = new Image();
-iconImg.onload = onAssetLoad;
-iconImg.onerror = onAssetLoad;
-iconImg.src = '/assets/ui/icon.png';
-
-// Failsafe
-setTimeout(finishLoading, 4000);
-
-let started = false;
-function finishLoading() {
-  if (started) return;
-  started = true;
-  loadGame();
-  loadingEl.classList.add('done');
-  requestAnimationFrame(loop);
-}
-
-// ----- MAIN LOOP -----
-let lastTime = 0;
-function loop(now) {
-  const dt = Math.min((now - lastTime) / 1000, 0.05);
-  lastTime = now;
-
-  update(dt);
-  draw();
-
-  requestAnimationFrame(loop);
-}
-
-// ----- SERVICE WORKER -----
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').catch(() => {});
-}
+if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
 
 })();
 </script>
