@@ -532,7 +532,7 @@ function drawWorldMap(){
   RESTAURANTS.forEach((r,i)=>{
     const x=60+i*145,y=80,w=130,h=420;
     const unlocked=G.save.unlockedRestaurants.includes(i);
-    const stars=G.save.stars[i+''']||0;
+    const stars=G.save.stars[i+'']||0;
 
     cx.globalAlpha=unlocked?1:0.4;
     cx.fillStyle=unlocked?'#1e1610':'#141210';
@@ -629,7 +629,7 @@ function drawRestaurantMenu(){
   btn(310,475,180,35,'← World Map','#3a2a1e','#2a1a10');
 
   cx.font='12px Georgia';cx.fillStyle='#806040';cx.textAlign='center';
-  cx.fillText('Best: '+(G.save.stars[G.save.currentRestaurant+'']||0)+' ⭐  |  🪙 '+fmt(G.save.coins),400,540);
+  cx.fillText('Best: '+(G.save.stars[G.save.currentRestaurant+'']||0)+' \u2B50  |  \uD83E\uDE99 '+fmt(G.save.coins),400,540);
 }
 
 // ── COOKING SCREEN (main gameplay) ──
